@@ -30,6 +30,48 @@
 \section{Motivation, context and target application}
 \section{Supporting parallelism in C/C++}
 \section{The OpenMP standard}
+
+Jointly defined by a group of major computer hardware and software vendors, \emph{OpenMP} is a portable, scalable model that gives shared-memory parallel programmers a simple and flexible interface for developing parallel applications for platforms ranging from desktop to the supercomputer.\\
+The \emph{OpenMP API} uses the fork-join model of parallel execution. Multiple threads of execution perform tasks defined implicitly or explicitly by \emph{OpenMP} directives. The \emph{OpenMP API} is intended to support programs that will execute correctly both as parallel programs (multiple threads of execution and a full \emph{OpenMP} support library) and as sequential programs (directives ignored and a simple \emph{OpenMP} stubs library).
+An \emph{OpenMP} program begins as a single thread of execution, called an initial thread. An initial thread executes sequentially, as if enclosed in an implicit task region, called an initial task region, that is defined by the implicit parallel region surrounding the whole program.\\
+If a construct creates a data environment after an \emph{OpenMP} directive, the data environment is created at the time the construct is encountered. Whether a construct creates a data environment is defined in the description of the construct. When any thread encounters a parallel construct, the thread creates a team of itself and zero or more additional threads and becomes the master of the new team. The code for each task is defined by the code inside the parallel construct. Each task is assigned to a different thread in the team and becomes tied; that is, it is always executed by the thread to which it is initially assigned. The task region of the task being executed by the encountering thread is suspended, and each member of the new team executes its implicit task. Each directive uses a number of threads defined by the standard or it can be set using the function call \emph{void omp\_set\_num\_threads(int num\_threads)}. In this project this call is not allowed and the thread number for each directive is managed separately. There is an implicit barrier at the end of each parallel construct; only the master thread resumes execution beyond the end of the parallel construct, resuming the task region that was suspended upon encountering the parallel construct. Any number of parallel constructs can be specified in a single program. \\
+It is very important to notice that \emph{OpenMP}-compliant implementations are not required to check for data dependencies, data conflicts, race conditions, or deadlocks, any of which may occur in conforming programs. In addition, compliant implementations are not required to check for code sequences that cause a program to be classified as non conforming. Also the developed tool will only accept well written programs, whitout checking if they are \emph{OpenMP}-compliant. The \emph{OpenMP} specification makes also no guarantee that input or output to the same file is synchronous when executed in parallel. In this case, the programmer is responsible for synchronizing input and output statements (or routines) using the provided synchronization constructs or library routines.; this assumption is also maintained in the developed tool.
+\\
+In C/C++, \emph{OpenMP} directives are specified by using the\begin{bf} $\#$pragma\end{bf} mechanism provided by the C and C++ standards.  Almost all directives start starts with \begin{bf}$\#$pragma omp\end{bf} and have the following grammar:
+
+\begin{bf}{\center{$\#$pragma omp directive-name [clause[ [,] clause]...] new-line}}\end{bf}
+\\
+
+A directive applies to at most one succeeding statement, which must be a structured block, and may be composed of consecutive $\#$pragma preprocessing directives. \\
+It is possible to specify for each variable, in an \emph{OpenMP} directive, if it should be private or shared by the threads; this can be done using the clause attribute \emph{shared(variable)} or \emph{private(variable)}\\
+There is a big variety of  directives which permit to express almost all computational patterns; for this reason a restricted set has been choosen in this project. Real time application tend to be composed by a lot of small jobs, with only a small amount of shared variables and a lot of synchronization control. Given this, the following \emph{OpenMP} directives have been choosen:
+\begin{itemize}
+\item{\begin{bf}{$\#$pragma omp parallel}\end{bf} : all the code inside of this block is executed in parallel by all the available threads. Each thread has its variables defined by the appropriate clauses. }
+\item{\begin{bf}{$\#$pragma omp sections}\end{bf} : this pragma opens a block which has to contain section directives; it has always to be contained inside a $\#$pragma omp parallel block. There is an implicit barrier at the end of this block synchronizing all the section blocks which are included. }
+\item{\begin{bf}{$\#$pragma omp section}\end{bf} : all the code inside of this block is executed in parallel by only \emph{one} thread. }
+\item{\begin{bf}{$\#$pragma omp for}\end{bf} : this pragma must precede a for cycle. In this case the \emph{for loop} is splitted among  threads and a private copy of the looping variable is associated to each. This pragma must be nested in a $\#$pragma omp parallel  directive or can be expressed as \begin{bf}{$\#$pragma omp parallel for}\end{bf} without the need of the previous one.  }
+\end{itemize}
+With this semantic it is possible to create all the standard computation patterns like \emph{Farms}, \emph{Maps}, \emph{Stencils} \dots \\
+\emph{OpenMp} synchronization directives as \begin{bf}$\#$pragma omp barrier\end{bf} are not supported for now; only the synchronization semantic given by the above directives is ensured. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 \section{Clang as LLVM frontend}
 
 \chapter{Design}
