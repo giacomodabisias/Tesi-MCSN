@@ -1,0 +1,76 @@
+\documentclass[a4paper,11pt,oneside]{book}
+\usepackage{latexsym}
+\usepackage{braket}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{verbatim}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{graphicx}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\pagestyle{plain}
+
+
+\author{Giacomo Dabisias, Filippo Brizzi}
+\title{A framework for static allocation of parallel OpenMp code on multi-core platforms}
+\frenchspacing
+
+\begin{document}
+\frontmatter
+\tableofcontents
+
+\chapter{Abstract}
+\section{Objective}
+\section{Chapter's structure}
+
+
+\mainmatter
+\chapter{Introduction}
+\section{Motivation, context and target application}
+\section{Supporting parallelism in C/C++}
+\section{The OpenMP standard}
+\section{Clang as LLVM frontend}
+
+\chapter{Design}
+\section{The framework}
+\section{A simple example}
+\section{Analysis}
+\subsection{Code}
+\subsection{Parallelism}
+\section{Intrumentation for profiling}
+\section{Profiling}
+\section{Schedule generation}
+\section{Instrumentation for the execution}
+\section{Run-time support}
+
+\chapter{Implementation}
+\section{Scheduling XML schema}
+\section{Instrumentation for Profiling}
+\section{Profiling implementation}
+\section{Schedule generating tool}
+\section{Instrumentation for the execution}
+\section{Run-time support}
+
+\chapter{Performance evaluation}
+\section{A computer vision application}
+\section{Results with statistics}
+
+\chapter{Conclusions}
+\section{Achieved results}
+\section{Future development}
+
+
+
+
+
+
+\begin{thebibliography}{9}
+\bibitem{bbw} Giorgio Buttazzo, Enrico Bini, Yifan Wu. \emph{Partitioning parallel applications on multiprocessor reservations}. Scuola Superiore Sant’Anna, Pisa, Italy
+\bibitem{bb} Giorgio Buttazzo, Enrico Bini, Yifan Wu. \emph{Partitioning real-time applications over multi-core reservations}. Scuola Superiore Sant’Anna, Pisa, Italy
+\bibitem{mfp} Ricardo Garibay-Martinez, Luis Lino Ferreira and Luis Miguel Pinho, \emph{A Framework for the Development of Parallel and Distributed Real-Time Embedded Systems}
+\bibitem{pop}Antoniu Pop (1998). \emph{OpenMP and Work-Streaming Compilation in GCC}. 3 April 2011, Chamonix, France
+
+\end{thebibliography}
+
+\end{document}
