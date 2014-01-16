@@ -26,8 +26,22 @@
 
 
 \mainmatter
-\chapter{Introduction}
 \section{Motivation, context and target application}
+The last years have seen the transition from single core architectures towards multicore architectures in the desktop and server enviroment mainly. Lately also small devices as smartphones, embedded microprocessors and tablets have started to use more than a single core processor. The actual trend is to use a lot of cores with just a reduced instruction set as in \emph{general purpose GPUs} .\\
+Also \emph{real time} systems are becoming more and more common, finding their place in almost all aspects of our daily routines; the actual problem is that most of this systems are made to exploit usually just one single computing core, while their capabilities are growing. This bring to two possible solutions:
+\begin{itemize}
+\item{Find new and better scheduling algorithms to allocate new tasks using the same single core architecture}
+\item{Upgrade the processing power by adding new computing cores or by using a faster single core.}
+\end{itemize}
+The first solution has the disadvantage that, if the computing resources are already perfectly allocated, it cannot find any better scheduling for the tasks to make space for a new job. A faster single core is also often not feasible given the higher power consumption and temperature; this aspect is very relevant  in embedded devices. 
+The natural solution to the problem is to exploit the new trend toward multicore systems; this solution has opened a new research field and has brought to view a lot of new challenging problems. Given that the number of cores is doubling following \emph{Moores law}, it is very important to find a fast and architecture independent way to map a set of \emph{real time} jobs on computing cores. Given such a tool, it would be possible to  upgrade or change the computing architecture in case of new \emph{real time} jobs, just scheduling them on the new system. 
+
+
+
+
+
+
+
 \section{Supporting parallelism in C/C++}
 \section{The OpenMP standard}
 
@@ -38,13 +52,11 @@ If a construct creates a data environment after an \emph{OpenMP} directive, the 
 It is very important to notice that \emph{OpenMP}-compliant implementations are not required to check for data dependencies, data conflicts, race conditions, or deadlocks, any of which may occur in conforming programs. In addition, compliant implementations are not required to check for code sequences that cause a program to be classified as non conforming. Also the developed tool will only accept well written programs, whitout checking if they are \emph{OpenMP}-compliant. The \emph{OpenMP} specification makes also no guarantee that input or output to the same file is synchronous when executed in parallel. In this case, the programmer is responsible for synchronizing input and output statements (or routines) using the provided synchronization constructs or library routines.; this assumption is also maintained in the developed tool.
 \\
 In C/C++, \emph{OpenMP} directives are specified by using the\begin{bf} $\#$pragma\end{bf} mechanism provided by the C and C++ standards.  Almost all directives start starts with \begin{bf}$\#$pragma omp\end{bf} and have the following grammar:
-
 \begin{bf}{\center{$\#$pragma omp directive-name [clause[ [,] clause]...] new-line}}\end{bf}
 \\
-
 A directive applies to at most one succeeding statement, which must be a structured block, and may be composed of consecutive $\#$pragma preprocessing directives. \\
 It is possible to specify for each variable, in an \emph{OpenMP} directive, if it should be private or shared by the threads; this can be done using the clause attribute \emph{shared(variable)} or \emph{private(variable)}\\
-There is a big variety of  directives which permit to express almost all computational patterns; for this reason a restricted set has been choosen in this project. Real time application tend to be composed by a lot of small jobs, with only a small amount of shared variables and a lot of synchronization control. Given this, the following \emph{OpenMP} directives have been choosen:
+There is a big variety of  directives which permit to express almost all computational patterns; for this reason a restricted set has been choosen in this project. Real time application tend to be composed by a lot of small jobs, with only a small amount of shared variables and a lot of controllers. Given this, the following \emph{OpenMP} directives have been choosen:
 \begin{itemize}
 \item{\begin{bf}{$\#$pragma omp parallel}\end{bf} : all the code inside of this block is executed in parallel by all the available threads. Each thread has its variables defined by the appropriate clauses. }
 \item{\begin{bf}{$\#$pragma omp sections}\end{bf} : this pragma opens a block which has to contain section directives; it has always to be contained inside a $\#$pragma omp parallel block. There is an implicit barrier at the end of this block synchronizing all the section blocks which are included. }
@@ -53,22 +65,6 @@ There is a big variety of  directives which permit to express almost all computa
 \end{itemize}
 With this semantic it is possible to create all the standard computation patterns like \emph{Farms}, \emph{Maps}, \emph{Stencils} \dots \\
 \emph{OpenMp} synchronization directives as \begin{bf}$\#$pragma omp barrier\end{bf} are not supported for now; only the synchronization semantic given by the above directives is ensured. 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
