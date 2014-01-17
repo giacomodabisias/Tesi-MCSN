@@ -21,25 +21,29 @@
 \tableofcontents
 
 \chapter{Abstract}
+
 \section{Objective}
+The aim of this thesis is to create a framework for guaranteeing real-time constraints on parallel \emph{OpenMP} C++ code. The framework provides a static schedule for the allocation of tasks on system threads and a run-time support for the real-time execution. In order to do so the original source code is instrumented, profiled and rewritten by means of clang. Performance results are provided on a Computer Vision application.
+
 \section{Chapter's structure}
 
 
 \mainmatter
 \section{Motivation, context and target application}
-The last years have seen the transition from single core architectures towards multicore architectures in the desktop and server enviroment mainly. Lately also small devices as smartphones, embedded microprocessors and tablets have started to use more than a single core processor. The actual trend is to use a lot of cores with just a reduced instruction set as in \emph{general purpose GPUs} .\\
-Also \emph{real time} systems are becoming more and more common, finding their place in almost all aspects of our daily routines; the actual problem is that most of this systems are made to exploit usually just one single computing core, while their capabilities are growing. This bring to two possible solutions:
+The last years have seen the transition from single core architectures towards multicore architectures, mainly in the desktop and server enviroment. Lately also small devices as smartphones, embedded microprocessors and tablets have started to use more than a single core processor. The actual trend is to use a lot of cores with just a reduced instruction set as in \emph{general purpose GPUs} .\\
+Also \emph{real time} systems are becoming more and more common, finding their place in almost all aspects of our daily routines; this systems often consists several applications executing concurrently on shared resources. The most relevant drawback is that most of this systems are usually made to exploit just one single computing core, while their capabilities demand is growing. This bring to two possible solutions:
 \begin{itemize}
 \item{Find new and better scheduling algorithms to allocate new tasks using the same single core architecture}
 \item{Upgrade the processing power by adding new computing cores or by using a faster single core.}
 \end{itemize}
-The first solution has the disadvantage that, if the computing resources are already perfectly allocated, it cannot find any better scheduling for the tasks to make space for a new job. A faster single core is also often not feasible given the higher power consumption and temperature; this aspect is very relevant  in embedded devices. 
-The natural solution to the problem is to exploit the new trend toward multicore systems; this solution has opened a new research field and has brought to view a lot of new challenging problems. Given that the number of cores is doubling following \emph{Moores law}, it is very important to find a fast and architecture independent way to map a set of \emph{real time} jobs on computing cores. Given such a tool, it would be possible to  upgrade or change the computing architecture in case of new \emph{real time} jobs, just scheduling them on the new system. 
-
-
-
-
-
+The first solution has the disadvantage that, if the computing resources are already perfectly allocated, it cannot find any better scheduling for the tasks to make space for a new job. A faster single core is also often not feasible, given the higher power consumption and temperature; this aspect is very relevant in embedded devices. 
+The natural solution to the problem is to exploit the new trend toward multicore systems; this solution has opened a new research field and has brought to view a lot of new challenging problems. Given that the number of cores is doubling according to the well known \emph{Moores law}, it is very important to find a fast and architecture independent way to map a set of \emph{real time} jobs on computing cores. With such a tool, it would be possible to upgrade or change the computing architecture in case of new \emph{real time} jobs, just scheduling them on the new system.\\
+ The solution needs three fundamental features which are supported by the described tool:
+\begin{itemize}
+\item{An easy \emph{API} for the programmer to specify the cuncurrency between \emph{real time} tasks together with all the necessary parameters (deadlines, arrival times, activation times \dots)}
+\item{The creation of a \emph{scheduling algorithm} which supports multicore architectures. }
+\item{A \emph{run time support} for the program execution which guarantees the scheduling order and the timing contrains.}
+\end{itemize}
 
 
 \section{Supporting parallelism in C/C++}
@@ -79,6 +83,25 @@ With this semantic it is possible to create all the standard computation pattern
 \section{Intrumentation for profiling}
 \section{Profiling}
 \section{Schedule generation}
+
+The problem of finding the best possible schedule on a multicore architecture is known to be a \emph{NP} hard problem. Given $N$ tasks and $M$ computing nodes, the problem consists of creating $K$, possibly lower than $M$, execution flows in order to assign each task to a single flow. To find a good solution a recursive algorithm has been developed which, by taking advantage of a search tree, tries to prune the brenches as soon as possible. Often the algorithm could not finish in a reasonable time due to the big number of possible solutions; to solve this problem a timer has been added to stop the computation after a certain amount of time given as input. \\
+At level of the search tree works a single task is considered; the algorithm inserts the task in each possible flow, checks if the partial solution is feasible and, if affermative, continues untill all tasks have been set arriving to a leaf. To check if the partial solution is feasible the algorithm calculates the cost of the actual solution and compares it with the best solution found so far, then it checks that the number of created flows is less than a predefined number and that the timer has now expired; if all this requirements are met, the brench continues its execution, else the brench is pruned. After that all task are set, if the requirements are fullfilled, the actual solution is compared with the optimal found so far and, in case, the actual one will become the new optimal solution. To calculate if a solution is better than another a simple heuristic has been used: the cost of a task is it's computation time, each flow has as cost the summation of all the costs of the containing tasks and the cost of a set of flows (solution or partial solution) is the maximum of the costs of the flows. Given this metric a solution is better than another if it has a lower cost. Having a low flow cost means that the flows are well balanced; it is also important to notice that the algorithm is working in a \emph{}breadth-first manner so that the number of flows is conservative, meaning that the lowest possible number is used to find the best solution. It is possible to easily add any number of pruning and cost metrics to improve the actual search algorithm\\
+There is a small variation of the algorithm when a task containing a \emph{$\#$pragma parallel for} or \emph{$\#$pragma  for} is encountered. In this case the algorithm tryes to split the for loop as much as possible creating new tasks which are added to the task list. First the task is divided in $2$ tasks and they are added to the task list, then the task is splitted in $3$ checking this solution and so on untill arriving to the number of available cores. The execution time of each task will be updated accordingly to the number of sub tasks in which it was splitted. \\
+A parallel solution of this algorithm has also been developed in order to check more solutions in the same time. It is important to remember that in \emph{Python}, even if more threads are created, there is only a single interpreter, so all the threads execution is serialized; to avoid this problem the tool creates different processes, each with its own \emph{Python} interpreter. Given that the algorithm requires a lot of shared and private data which is updated at each computation step, the parallelisation of the algorithm would have been extremely complex, so an easyer approach has been used. The same sequential algorithm is executed in parallel using for each process a randomized input order of the tasks. In this way each execution will possible solutions in a different order; in any case after a certain amount of time all the processes will find all possible solutions, but with a timing contrain it is very likly to check more solutions than in the sequential version. The algorithm terminates returning an optimal solution in the sequantial case and $K$ solutions in the parallel version; in this case the solutions are then compared and the best one is choosen as scheduling sequence. \\
+It is important to notice that such a sequence could in principle not be schedulable, since the algorithm does not take care of precedence relations, but tries only to find the cheapest possible allocation. To check if the solution is feasible a second algorithm has been implemented.\\
+
+
+
+
+
+
+
+
+
+
+
+
+
 \section{Instrumentation for the execution}
 \section{Run-time support}
 
