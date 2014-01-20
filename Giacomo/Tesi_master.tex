@@ -23,30 +23,43 @@
 
 \chapter{Abstract}
 
-\section{Objective}
-The aim of this thesis is to create a framework for guaranteeing real-time constraints on parallel \emph{OpenMP} C++ code. The framework provides a static schedule for the allocation of tasks on system threads and a run-time support for the real-time execution. In order to do so the original source code is instrumented, profiled and rewritten by means of clang. Performance results are provided on a Computer Vision application.
+The aim of this thesis is to create a framework for guaranteeing \emph{real-time} constraints on parallel \emph{OpenMP} C++ code. The framework provides a static schedule for the allocation of tasks on system threads and a run-time support for the \emph{real-time} execution. In order to do so the original source code is first instrumented, then profiled and finally rewritten by means of clang. Performance results are provided on a Computer Vision application.
 
-\section{Chapter's structure}
-
-
-\mainmatter
 \section{Motivation, context and target application}
+
 The last years have seen the transition from single core architectures towards multicore architectures, mainly in the desktop and server enviroment. Lately also small devices as smartphones, embedded microprocessors and tablets have started to use more than a single core processor. The actual trend is to use a lot of cores with just a reduced instruction set as in \emph{general purpose GPUs}.\\
-Also \emph{real time} systems are becoming more and more common, finding their place in almost all aspects of our daily routines; this systems often consists several applications executing concurrently on shared resources. The most relevant drawback is that most of this systems are usually made to exploit just one single computing core, while their capabilities demand is growing. This bring to two possible solutions:
+Also \emph{real time} systems are becoming more and more common, finding their place in almost all aspects of our daily routines; this systems often consists several applications executing concurrently on shared resources. 
+The main differences between this systems and a system designed to achive high performance can be summarized as follows:
+\begin{itemize}
+\item{ \emph{Real time} programs need strict timing guarantees, while high performance programs try to achive the lowest possible computation time, usually in a best effort manner.}
+\item{\emph{Real time} programs need to be predictable; in principle it could be that a real time program could finish almost always before its deadline on a high performance system, but it could be that in some exceptional cases, due to execution preemption, context switches, concurrent resource access \dots the program does not finish in time. To solve this it may happen that the mean execution time of the real time program grows, but the program becomes also predictable, in the sense that it always finishes within its deadline.}
+\item{ High performance systems need to "scale" well when the architecture becomes more powerful, while \emph{real time} systems need just to satisfy the timing contrains, even with no performance gain.             }
+
+\end{itemize}
+
+The most relevant drawback of actual real time systems is that most of them are usually made to exploit just one single computing core, while their capabilities demand is growing. This bring to two possible solutions:
 \begin{itemize}
 \item{Find new and better scheduling algorithms to allocate new tasks using the same single core architecture}
 \item{Upgrade the processing power by adding new computing cores or by using a faster single core.}
 \end{itemize}
 The first solution has the disadvantage that, if the computing resources are already perfectly allocated, it cannot find any better scheduling for the tasks to make space for a new job. A faster single core is also often not feasible, given the higher power consumption and temperature; this aspect is very relevant in embedded devices. 
 The natural solution to the problem is to exploit the new trend toward multicore systems; this solution has opened a new research field and has brought to view a lot of new challenging problems. Given that the number of cores is doubling according to the well known \emph{Moores law}, it is very important to find a fast and architecture independent way to map a set of \emph{real time} jobs on computing cores. With such a tool, it would be possible to upgrade or change the computing architecture in case of new \emph{real time} jobs, just scheduling them on the new system.\\
- The solution needs three fundamental features which are supported by the described tool:
+
+
+\section{Objective}
+
+To overcome the problems stated before, the described tool must have four fundamental features:
 \begin{itemize}
 \item{An easy \emph{API} for the programmer to specify the cuncurrency between \emph{real time} tasks together with all the necessary parameters (deadlines, arrival times, activation times \dots)}
-\item{The creation of a \emph{scheduling algorithm} which supports multicore architectures. }
+\item{The creation of a \emph{scheduling algorithm} which supports multicore architectures, adapting to the specific platform.}
+\item{A way to visualize task concurrency and code structure as graphs.}
 \item{A \emph{run time support} for the program execution which guarantees the scheduling order and the timing contrains.}
 \end{itemize}
 
+\section{Chapter's structure}
 
+
+\mainmatter
 
 \section{Supporting parallelism in C/C++}
 \section{The OpenMP standard}
@@ -83,7 +96,7 @@ With this semantic it is possible to create all the standard computation pattern
 \section{Intrumentation for profiling}
 \section{Profiling}
 
-The priviously instrumented code is first executed $N$ times, which is given as input parameter, using as arguments the data contained in a specific text file. At each iteration the algorithm produces, for each function and pragma, their execution time and, in case of a $\#$pragma omp for or $\#$pragma omp parallel for, also the number of executed cycles. This data is gathered during the $N$ iterations and then the mean value of the execution time, executed loops and variance for each node is produced. The new data is  added to the flow graph previously produced to be used later in the scheduling algorithm.
+The priviously instrumented code is first executed $N$ times, which is given as input parameter, using as arguments the data contained in a specific text file. At each iteration the algorithm produces, for each function and pragma, their execution time and, in case of a $\#$pragma omp for or $\#$pragma omp parallel for, also the number of executed cycles. This data is gathered during the $N$ iterations and then the mean value of the execution time, executed loops and variance for each node is produced. The new data is added to the flow graph previously produced to be used later in the scheduling algorithm. 
 
 
 
