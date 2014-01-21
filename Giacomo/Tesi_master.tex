@@ -25,6 +25,11 @@
 
 The aim of this thesis is to create a framework for guaranteeing \emph{real-time} constraints on parallel \emph{OpenMP} C++ code. The framework provides a static schedule for the allocation of tasks on system threads and a run-time support for the \emph{real-time} execution. In order to do so the original source code is first instrumented, then profiled and finally rewritten by means of clang. Performance results are provided on a Computer Vision application.
 
+\section{Chapter's structure}
+
+\mainmatter
+\chapter{Introduction}
+
 \section{Motivation, context and target application}
 
 The last years have seen the transition from single core architectures towards multicore architectures, mainly in the desktop and server enviroment. Lately also small devices as smartphones, embedded microprocessors and tablets have started to use more than a single core processor. The actual trend is to use a lot of cores with just a reduced instruction set as in \emph{general purpose GPUs}.\\
@@ -33,7 +38,7 @@ The main differences between this systems and a system designed to achive high p
 \begin{itemize}
 \item{ \emph{Real time} programs need strict timing guarantees, while high performance programs try to achive the lowest possible computation time, usually in a best effort manner.}
 \item{\emph{Real time} programs need to be predictable; in principle it could be that a real time program could finish almost always before its deadline on a high performance system, but it could be that in some exceptional cases, due to execution preemption, context switches, concurrent resource access \dots the program does not finish in time. To solve this it may happen that the mean execution time of the real time program grows, but the program becomes also predictable, in the sense that it always finishes within its deadline.}
-\item{ High performance systems need to "scale" well when the architecture becomes more powerful, while \emph{real time} systems need just to satisfy the timing contrains, even with no performance gain.             }
+\item{ High performance systems need to "scale" well when the architecture becomes more powerful, while \emph{real time} systems need just to satisfy the timing contrains, even with no performance gain.  }
 
 \end{itemize}
 
@@ -56,10 +61,10 @@ To overcome the problems stated before, the described tool must have four fundam
 \item{A \emph{run time support} for the program execution which guarantees the scheduling order and the timing contrains.}
 \end{itemize}
 
-\section{Chapter's structure}
 
 
-\mainmatter
+
+
 
 \section{Supporting parallelism in C/C++}
 \section{The OpenMP standard}
@@ -81,9 +86,22 @@ There is a big variety of  directives which permit to express almost all computa
 \item{\begin{bf}{$\#$pragma omp sections}\end{bf} : this pragma opens a block which has to contain section directives; it has always to be contained inside a $\#$pragma omp parallel block. There is an implicit barrier at the end of this block synchronizing all the section blocks which are included. }
 \item{\begin{bf}{$\#$pragma omp section}\end{bf} : all the code inside of this block is executed in parallel by only \emph{one} thread. }
 \item{\begin{bf}{$\#$pragma omp for}\end{bf} : this pragma must precede a for cycle. In this case the \emph{for loop} is splitted among  threads and a private copy of the looping variable is associated to each. This pragma must be nested in a $\#$pragma omp parallel  directive or can be expressed as \begin{bf}{$\#$pragma omp parallel for}\end{bf} without the need of the previous one.  }
+\item{\begin{bf}{$\#$pragma single}\end{bf} : this pragma must be nested inside a \begin{bf}{$\#$pragma omp parallel }\end{bf} and means that the code block contained in it must be executed only by a single thread}
+\item{\begin{bf}{$\#$pragma task}\end{bf} : this pragma must be bested inside a \begin{bf}{$\#$pragma omp parallel }\end{bf} and means that all the possible threads will execute in parallel the same code block contained in it. In the developed tool this structure is not allowed. The allowed structure instead is composed by a number of \begin{bf}{$\#$pragma task}\end{bf} nested inside a \begin{bf}{$\#$pragma single}\end{bf} block. The semantic of this contruct is the same as  having \begin{bf}{$\#$pragma omp section}\end{bf}s inside \begin{bf}{$\#$pragma omp sections}\end{bf}.}
 \end{itemize}
-With this semantic it is possible to create all the standard computation patterns like \emph{Farms}, \emph{Maps}, \emph{Stencils} \dots \\
+The considered pragma set can be splitted into two groups: 
+\begin{itemize}
+\item{ A first set composed of \begin{bf}{$\#$pragma omp parallel}\end{bf}, \begin{bf}{$\#$pragma omp sections}\end{bf} and \begin{bf}{ $\#$pragma omp single}\end{bf} which are “control” pragmas, meaning that they are used to organize the task execution.}
+\item{A second set containing \begin{bf}{$\#$pragma omp section}\end{bf}, \begin{bf}{$\#$pragma omp task}\end{bf} and \begin{bf}{$\#$pragma omp for}\end{bf} which represent “jobs”, meaning that they contain the majority of the computation.}
+\end{itemize}
+ \emph{OpenMP} imposes that pragmas belonging to the second group must always be nested inside a control pragma and that no pragmas can be nested inside them. It is still possible to overcome this rule by invoking a function, which contains pragmas, inside one of the pragmas contained in the first group; however to make this approach work it is necessary to set the \emph{OMP\_NESTED} environment variable by invoking the function call \emph{omp\_set\_nested(1)}.\\
+With this subset of \emph{OpenMP} it is possible to create all the standard computation patterns like \emph{Farms}, \emph{Maps}, \emph{Stencils} \dots \\
 \emph{OpenMp} synchronization directives as \begin{bf}$\#$pragma omp barrier\end{bf} are not supported for now; only the synchronization semantic given by the above directives is ensured. 
+
+
+
+
+
 
 \section{Clang as LLVM frontend}
 
@@ -93,12 +111,28 @@ With this semantic it is possible to create all the standard computation pattern
 \section{Analysis}
 \subsection{Code}
 \subsection{Parallelism}
+\section{Graph generation}
+
+To visualize the the code structure, parallel code execution and the call graph, three different type of graphs have been generated, each containing a series of nodes which are connected through undirected archs. The first node of each graph displays the function name along with the total computation time. For each function in the program a different graph is created in two different formats; for visualization a PDF file, while a DOT file is created so that the graph can be modified with other tools. The code structure graph, simply called code graph, shows how pragmas are nested inside each other. Each node displays relevant informations as pragma type, starting line, execution time and variance. The parallel code execution graph, called flow graph, shows which nodes can be executed in parallel; some simple rules apply in this case to understand the execution flow:
+\begin{itemize}
+\item{a node can execute only after all the parents have completed.}
+\item{All nodes which have a single parent in common can execute in parallel (this is shown by having the same color for arches which can execute in parallel).}
+\item{All nodes have to synchronize on barrier nodes.}
+\end{itemize}
+In the call graph each node invoking a function containing pragmas is connected to the function subgraph by a directed arch fig:\ref{call_graph}; the execution flow continues after the function call is executed and resumes in the children of the caller node. The semantic of the execution is the same as the one of the flow graph.
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width = 130mm, height = 76mm]{call_graph.png}
+\caption{call graph example}
+\label{call_graph}
+\end{figure}
+
+
 \section{Intrumentation for profiling}
 \section{Profiling}
 
 The priviously instrumented code is first executed $N$ times, which is given as input parameter, using as arguments the data contained in a specific text file. At each iteration the algorithm produces, for each function and pragma, their execution time and, in case of a $\#$pragma omp for or $\#$pragma omp parallel for, also the number of executed cycles. This data is gathered during the $N$ iterations and then the mean value of the execution time, executed loops and variance for each node is produced. The new data is added to the flow graph previously produced to be used later in the scheduling algorithm. 
-
-
 
 \section{Schedule generation}
 
