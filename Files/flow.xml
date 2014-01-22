@@ -11,8 +11,8 @@
       </Parameter>
     </Parameters>
     <Line>3</Line>
-    <Time>0.0</Time>
-    <Variance>0.0</Variance>
+    <Time>7.0</Time>
+    <Variance>1.0</Variance>
     <Callerids>
       <Callerid>19</Callerid>
       <Callerid>25</Callerid>
@@ -27,7 +27,8 @@
         <Callerids>
           <Callerid>3</Callerid>
         </Callerids>
-        <Variance>0.0</Variance>
+        <Time>7.0</Time>
+        <Variance>1.0</Variance>
       </Pragma>
     </Nodes>
     <Edges>
@@ -51,7 +52,7 @@
       </Parameter>
     </Parameters>
     <Line>12</Line>
-    <Time>0.0</Time>
+    <Time>14.0</Time>
     <Variance>0.0</Variance>
     <Callerids />
     <Nodes>
@@ -73,6 +74,7 @@
         <Callerids>
           <Callerid>12</Callerid>
         </Callerids>
+        <Time>14.0</Time>
         <Variance>0.0</Variance>
       </Pragma>
       <Pragma id="1729">
@@ -84,6 +86,7 @@
         <Callerids>
           <Callerid>15</Callerid>
         </Callerids>
+        <Time>14.0</Time>
         <Variance>0.0</Variance>
       </Pragma>
       <Pragma id="1922">
@@ -95,6 +98,7 @@
         <Callerids>
           <Callerid>17</Callerid>
         </Callerids>
+        <Time>6.0</Time>
         <Variance>0.0</Variance>
       </Pragma>
       <Pragma id="170">
@@ -122,6 +126,7 @@
         <Callerids>
           <Callerid>17</Callerid>
         </Callerids>
+        <Time>8.0</Time>
         <Variance>0.0</Variance>
       </Pragma>
     </Nodes>
