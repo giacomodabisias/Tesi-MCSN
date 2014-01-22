@@ -1,0 +1,159 @@
+<File>
+  <Name>source_exctractor/test_cases/thesis_test/omp_test.cpp</Name>
+  <GraphType>flow</GraphType>
+  <Function id="30">
+    <Name>work</Name>
+    <ReturnType>int</ReturnType>
+    <Parameters>
+      <Parameter>
+        <Type>int</Type>
+        <Name>bar</Name>
+      </Parameter>
+    </Parameters>
+    <Line>3</Line>
+    <Time>0.0</Time>
+    <Variance>0.0</Variance>
+    <Callerids>
+      <Callerid>19</Callerid>
+      <Callerid>25</Callerid>
+    </Callerids>
+    <Nodes>
+      <Pragma id="58">
+        <Name>OMPParallelForDirective</Name>
+        <Position>
+          <StartLine>5</StartLine>
+          <EndLine>8</EndLine>
+        </Position>
+        <Callerids>
+          <Callerid>3</Callerid>
+        </Callerids>
+        <Variance>0.0</Variance>
+      </Pragma>
+    </Nodes>
+    <Edges>
+      <Edge>
+        <Source>30</Source>
+        <Dest>58</Dest>
+      </Edge>
+    </Edges>
+  </Function>
+  <Function id="120">
+    <Name>main</Name>
+    <ReturnType>int</ReturnType>
+    <Parameters>
+      <Parameter>
+        <Type>int</Type>
+        <Name>argc</Name>
+      </Parameter>
+      <Parameter>
+        <Type>char **</Type>
+        <Name>argv</Name>
+      </Parameter>
+    </Parameters>
+    <Line>12</Line>
+    <Time>0.0</Time>
+    <Variance>0.0</Variance>
+    <Callerids />
+    <Nodes>
+      <Pragma id="1530">
+        <Name>OMPParallelDirective</Name>
+        <Options>
+          <Option>
+            <Name>private</Name>
+            <Parameter>
+              <Var>bar</Var>
+              <Type>int</Type>
+            </Parameter>
+          </Option>
+        </Options>
+        <Position>
+          <StartLine>15</StartLine>
+          <EndLine>30</EndLine>
+        </Position>
+        <Callerids>
+          <Callerid>12</Callerid>
+        </Callerids>
+        <Variance>0.0</Variance>
+      </Pragma>
+      <Pragma id="1729">
+        <Name>OMPSectionsDirective</Name>
+        <Position>
+          <StartLine>17</StartLine>
+          <EndLine>29</EndLine>
+        </Position>
+        <Callerids>
+          <Callerid>15</Callerid>
+        </Callerids>
+        <Variance>0.0</Variance>
+      </Pragma>
+      <Pragma id="1922">
+        <Name>OMPSectionDirective</Name>
+        <Position>
+          <StartLine>19</StartLine>
+          <EndLine>22</EndLine>
+        </Position>
+        <Callerids>
+          <Callerid>17</Callerid>
+        </Callerids>
+        <Variance>0.0</Variance>
+      </Pragma>
+      <Pragma id="170">
+        <Name>BARRIER</Name>
+        <Position>
+          <StartLine>17</StartLine>
+        </Position>
+        <Callerids />
+        <Variance>0</Variance>
+      </Pragma>
+      <Pragma id="150">
+        <Name>BARRIER</Name>
+        <Position>
+          <StartLine>15</StartLine>
+        </Position>
+        <Callerids />
+        <Variance>0</Variance>
+      </Pragma>
+      <Pragma id="2528">
+        <Name>OMPSectionDirective</Name>
+        <Position>
+          <StartLine>25</StartLine>
+          <EndLine>28</EndLine>
+        </Position>
+        <Callerids>
+          <Callerid>17</Callerid>
+        </Callerids>
+        <Variance>0.0</Variance>
+      </Pragma>
+    </Nodes>
+    <Edges>
+      <Edge>
+        <Source>120</Source>
+        <Dest>1530</Dest>
+      </Edge>
+      <Edge>
+        <Source>1530</Source>
+        <Dest>1729</Dest>
+      </Edge>
+      <Edge>
+        <Source>1729</Source>
+        <Dest>1922</Dest>
+      </Edge>
+      <Edge>
+        <Source>1922</Source>
+        <Dest>170</Dest>
+      </Edge>
+      <Edge>
+        <Source>170</Source>
+        <Dest>150</Dest>
+      </Edge>
+      <Edge>
+        <Source>1729</Source>
+        <Dest>2528</Dest>
+      </Edge>
+      <Edge>
+        <Source>2528</Source>
+        <Dest>170</Dest>
+      </Edge>
+    </Edges>
+  </Function>
+</File>

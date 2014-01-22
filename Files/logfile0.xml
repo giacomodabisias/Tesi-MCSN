@@ -1,0 +1,12 @@
+<LogFile>
+	<Hardware NumberofCores="4" MemorySize="2000"/>
+	<Pragma fid="3" pid="5" callerid="3" elapsedTime="0" childrenTime="0" loops="6"/>
+	<Function fid="3" callerid="19" elapsedTime="0" childrenTime="0"/>
+	<Pragma fid="12" pid="19" callerid="17" elapsedTime="0" childrenTime="0" loops="1296256328"/>
+	<Pragma fid="3" pid="5" callerid="3" elapsedTime="0" childrenTime="0" loops="8"/>
+	<Function fid="3" callerid="25" elapsedTime="0" childrenTime="0"/>
+	<Pragma fid="12" pid="25" callerid="17" elapsedTime="0" childrenTime="0" loops="1296256328"/>
+	<Pragma fid="12" pid="17" callerid="15" elapsedTime="0" childrenTime="0" loops="4200965"/>
+	<Pragma fid="12" pid="15" callerid="12" elapsedTime="0" childrenTime="0" loops="4200965"/>
+	<Function fid="12" elapsedTime="0" childrenTime="0"/>
+</LogFile>
