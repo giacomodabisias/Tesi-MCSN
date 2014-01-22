@@ -1,5 +1,5 @@
 #include <omp.h>
-#include <unistd.h>
+
 #include "thread_pool/threads_pool.h"
 int work(int bar){
 //    #pragma omp parallel for
@@ -14,7 +14,7 @@ int & bar_;
 void fx(ForParameter for_param, int & bar) {
 for(int i = 0 + for_param.thread_id_*(bar - 0)/for_param.num_threads_; i < 0 + (for_param.thread_id_ + 1)*(bar - 0)/for_param.num_threads_; i ++ )
     {
-       sleep(1); //do stuff
+       //do stuff
     }  
 launch_todo_job(); 
  }
@@ -30,7 +30,7 @@ if(ThreadPool::getInstance("source_exctractor/test_cases/thesis_test/omp_test.cp
 };
 
 int main(int argc, char* argv[]) {
-    int bar = 0;
+    int bar;
 //    #pragma omp parallel private(bar)
     {
       class Nested : public NestedBase {
@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
             int & bar_;
             
             void fx(ForParameter for_param, int & bar){   
-                bar = 6; //do stuff (bar)
+                //do stuff (bar)
                 work(bar);
             launch_todo_job(); 
 }
@@ -80,7 +80,7 @@ if(ThreadPool::getInstance("source_exctractor/test_cases/thesis_test/omp_test.cp
             int & bar_;
             
             void fx(ForParameter for_param, int & bar){
-                bar = 8; //do stuff (bar)
+                //do stuff (bar)
                 work(bar);
             launch_todo_job(); 
 }
