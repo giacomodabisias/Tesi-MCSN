@@ -10,7 +10,68 @@
 \usepackage{graphicx}
 \usepackage[english]{babel}
 \usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage{color}
+
+
 \pagestyle{plain}
+
+\lstset{
+  basicstyle=\ttfamily,
+  columns=fullflexible,
+  showstringspaces=false,
+  commentstyle=\color{gray}\upshape
+}
+
+\lstset{ 
+  breakatwhitespace=false,         % sets if automatic breaks should only happen at whitespace
+  breaklines=true,                 % sets automatic line breaking
+  captionpos=b,                    % sets the caption-position to bottom
+  frame=single,                    % adds a frame around the code
+  keepspaces=true,                 
+  numbers=left,                    % where to put the line-numbers; possible values are (none, left, right)
+  numbersep=5pt,                   % how far the line-numbers are from the code
+  numberstyle=\tiny\color{gray}, % the style that is used for the line-numbers
+  rulecolor=\color{black},         % if not set, the frame-color may be changed on line-breaks within not-black text (e.g. comments (green here))
+  showtabs=false,                  % show tabs within strings adding particular underscores
+  stepnumber=1,                    % the step between two line-numbers. If it's 1, each line will be numbered
+  tabsize=2,                       % sets default tabsize to 2 spaces
+  title=\lstname,                   % show the filename of files included with \lstinputlisting; also try caption instead of title
+ language=C++,
+ %basicstyle=\footnotesize,        % the size of the fonts that are used for the code
+ basicstyle=\ttfamily,
+ morekeywords={A}, 
+ keywordstyle=\color{darkblue}\ttfamily,
+ %identifierstyle=\color{green},
+ stringstyle=\color{red}\ttfamily,
+ %numberstyle=\color{purple}
+ commentstyle=\color{gray}\ttfamily,
+ morecomment=[l][\color{red}]{\#}
+}
+
+\definecolor{darkblue}{rgb}{0.0,0.0,0.8}
+\definecolor{green}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{darkgray}{rgb}{0.105,0.105,0.105}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+\definecolor{black}{rgb}{0,0,0}
+\definecolor{purple}{rgb}{0.72,0.61,0.139}
+%\definecolor{ocra}{rgb}{0.204, 0.119, 0.34}
+\definecolor{ocra}{rgb}{0.184,0.134,0.11}
+\definecolor{maroon}{rgb}{0.5,0,0}
+\definecolor{darkgreen}{rgb}{0,0.5,0}
+\lstdefinelanguage{XML}
+{
+  basicstyle=\ttfamily,
+  morestring=[s]{"}{"},
+  morecomment=[s]{?}{?},
+  morecomment=[s]{!--}{--},
+  commentstyle=\color{darkgreen},
+  moredelim=[s][\color{black}]{>}{<},
+  moredelim=[s][\color{red}]{\ }{=},
+  stringstyle=\color{blue},
+  identifierstyle=\color{maroon}
+}
 
 
 \author{Giacomo Dabisias, Filippo Brizzi}
@@ -133,6 +194,48 @@ Picture \ref{framework} gives a visual representation of the framwork.
 
 
 \section{A simple example}
+
+A simple example has been developed in order to show how the tool works in each step.
+
+\lstset{language=C++}
+\begin{lstlisting}
+
+#include <omp.h>
+
+int work(int bar){
+    #pragma omp parallel for
+    for (int i = 0; i < bar; ++i)
+    {
+       //do stuff
+    }  
+    return 0;
+};
+
+int main(int argc, char* argv[]) {
+    int bar;
+    #pragma omp parallel private(bar)
+    {
+        #pragma omp sections
+        {
+            #pragma omp section
+            {   
+                //do stuff (bar)
+                work(bar);
+            }
+            
+            #pragma omp section
+            {
+                //do stuff (bar)
+                work(bar);
+            }
+        }
+    }
+    return 0;
+}
+
+\end{lstlisting}
+
+
 \section{Analysis}
 \subsection{Code}
 \subsection{Parallelism}
@@ -176,7 +279,92 @@ In the call graph each node invoking a function containing pragmas is connected 
 \section{Intrumentation for profiling}
 \section{Profiling}
 
-The priviously instrumented code is first executed $N$ times, which is given as input parameter, using as arguments the data contained in a specific text file. At each iteration the algorithm produces, for each function and pragma, their execution time and, in case of a $\#$pragma omp for or $\#$pragma omp parallel for, also the number of executed cycles. This data is gathered during the $N$ iterations and then the mean value of the execution time, executed loops and variance for each node is produced. The new data is added to the flow graph previously produced to be used later in the scheduling algorithm. 
+The priviously instrumented code is first executed $N$ times, which is given as input parameter, using as arguments the data contained in a specific text file. At each iteration the algorithm produces, for each function and pragma, their execution time and, in case of a $\#$pragma omp for or $\#$pragma omp parallel for, also the number of executed cycles. This data is gathered during the $N$ iterations and then the mean value of the execution time, executed loops and variance for each node is produced and saved in a log file. 
+Ex:
+
+\lstset{language=XML}
+\begin{lstlisting}
+<Log_file>
+  <Hardware>
+    <NumberofCores>4</NumberofCores>
+    <MemorySize>2000</MemorySize>
+  </Hardware>
+  <Function>
+    <FunctionLine>3</FunctionLine>
+    <Time>7.0</Time>
+    <Variance>1.0</Variance>
+    <CallerId>[19, 25]</CallerId>
+    <ChildrenTime>7.0</ChildrenTime>
+  </Function>
+...
+  <Pragma>
+    <FunctionLine>12</FunctionLine>
+    <PragmaLine>25</PragmaLine>
+    <Time>8.0</Time>
+    <Variance>0.0</Variance>
+    <Loops>-1462062072.0</Loops>
+    <CallerId>['17']</CallerId>
+    <ChildrenTime>8.0</ChildrenTime>
+  </Pragma>
+  <Pragma>
+    <FunctionLine>12</FunctionLine>
+    <PragmaLine>19</PragmaLine>
+    <Time>6.0</Time>
+    <Variance>0.0</Variance>
+    <Loops>-1462062072.0</Loops>
+    <CallerId>['17']</CallerId>
+    <ChildrenTime>6.0</ChildrenTime>
+  </Pragma>
+...
+\end{lstlisting}
+
+The new data is added to the flow graph previously produced to be used later in the scheduling algorithm. This graph is then saved as \emph{XML} file by saving nodes and edged separately, giving each a unique identifier.
+
+
+\lstset{language=XML}
+\begin{lstlisting}
+<File>
+  <Name>source_exctractor/test_cases/thesis_test/omp_test.cpp</Name>
+  <GraphType>flow</GraphType>
+  <Function id="30">
+    <Name>work</Name>
+    <ReturnType>int</ReturnType>
+    <Parameters>
+      <Parameter>
+        <Type>int</Type>
+        <Name>bar</Name>
+      </Parameter>
+    </Parameters>
+    <Line>3</Line>
+    <Time>7.0</Time>
+    <Variance>1.0</Variance>
+    <Callerids>
+      <Callerid>19</Callerid>
+      <Callerid>25</Callerid>
+    </Callerids>
+    <Nodes>
+      <Pragma id="58">
+        <Name>OMPParallelForDirective</Name>
+        <Position>
+          <StartLine>5</StartLine>
+          <EndLine>8</EndLine>
+        </Position>
+        <Callerids>
+          <Callerid>3</Callerid>
+        </Callerids>
+        <Time>7.0</Time>
+        <Variance>1.0</Variance>
+      </Pragma>
+    </Nodes>
+    <Edges>
+      <Edge>
+        <Source>30</Source>
+        <Dest>58</Dest>
+      </Edge>
+    </Edges>
+  </Function>
+\end{lstlisting}
+
 
 \section{Schedule generation}
 
