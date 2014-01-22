@@ -120,17 +120,17 @@ The aim of this thesis is to create a framework for guaranteeing \emph{real-time
 The last years have seen the transition from single core architectures towards multicore architectures, mainly in the desktop and server enviroment. Lately also small devices as smartphones, embedded microprocessors and tablets have started to use more than a single core processor. The actual trend is to use a lot of cores with just a reduced instruction set as in \emph{general purpose GPUs}.
 
 Also \emph{real time} systems are becoming more and more common, finding their place in almost all aspects of our daily routines; this systems often consist of several applications executing concurrently on shared resources. 
-The main differences between this systems and a system designed to achive high performance can be summarized as follows:
+The main differences between these systems and a system designed to achive high performance can be summarized as follows:
 \begin{itemize}
-\item{ \emph{Real time} programs need strict timing guarantees, while high performance programs try to achive the lowest possible computation time, usually in a best effort manner.}
+\item{ \emph{real time} programs need strict timing guarantees, while high performance programs try to achive the lowest possible computation time, usually in a best effort manner.}
 \item{\emph{Real time} programs need to be predictable; in principle it could be that a real time program could finish almost always before its deadline on a high performance system, but it could be that in some exceptional cases, due to execution preemption, context switches, concurrent resource access \dots the program does not finish in time. To solve this, it may happen that the mean execution time of the real time program grows, but the program becomes also predictable, in the sense that it always finishes within its deadline.}
 \item{ High performance systems need to "scale" well when the architecture becomes more powerful, while \emph{real time} systems need just to satisfy the timing contrains, even with no performance gain.}
 
 \end{itemize}
 
-The most relevant drawback of actual real time systems is that most of them are usually made to exploit just one single computing core, while their capabilities demand is growing. Applications like Computer Vision, Robotics, Simulation, Video Encoding/Decoding, Software Defined Radios,\dots have the necessity to process in parallel more tasks to achive a positive feedback for the user. This bring to two possible solutions:
+The most relevant drawback of actual real time systems is that most of them are usually made to exploit just one single computing core, while their capabilities demand is growing. Applications like Computer Vision, Robotics, Simulation, Video Encoding/Decoding, Software Defined Radios, \dots have the necessity to process in parallel more tasks to achive a positive feedback for the user. This brings two possible solutions:
 \begin{itemize}
-\item{Find new and better scheduling algorithms to allocate new tasks using the same single core architecture}
+\item{find new and better scheduling algorithms to allocate new tasks using the same single core architecture.}
 \item{Upgrade the processing power by adding new computing cores or by using a faster single core.}
 \end{itemize}
 
@@ -138,11 +138,12 @@ The first solution has the disadvantage that, if the computing resources are alr
 The natural solution to the problem is to exploit the new trend toward multicore systems; this solution has opened a new research field and has brought to view a lot of new challenging problems. Given that the number of cores is doubling according to the well known \emph{Moores law}, it is very important to find a fast and architecture independent way to map a set of \emph{real time} tasks on computing cores. With such a tool, it would be possible to upgrade or change the computing architecture in case of new \emph{real time} jobs, just scheduling them on the new system.
 
 
-\section{Objective}
+\section{Objectives}
 
-To overcome the problems stated before, the described tool must have four fundamental features:
+The described tool aims to solve the previously stated problems providing the following features.
+
 \begin{itemize}
-\item{An easy \emph{API} for the programmer to specify the concurrency between \emph{real time} tasks together with all the necessary scheduling parameters (deadlines, computation times, activation times \dots)}
+\item{an easy \emph{API} for the programmer to specify the concurrency between \emph{real time} tasks together with all the necessary scheduling parameters (deadlines, computation times, activation times \dots)}
 \item{A way to visualize task concurrency and code structure as graphs.}
 \item{A \emph{scheduling algorithm} which supports multicore architectures, adapting to the specific platform.}
 \item{A \emph{run time support} for the program execution which guarantees the scheduling order of tasks and their timing contrains.}
@@ -155,21 +156,19 @@ In the last years the diffusion of multi-core platforms has rapidly increased en
 
 Several major software companies developed their own multi-thread libraries like Intel with Thread Building Block (TBB) and Microsoft with Parallel Patterns Library (PPL). There are also several open-source libraries like Boost and OpenMP. With the release of C++11 standard also the standard C++ library supports threading.
 
-Lately appeared also automatic parallelization tools. These softwares allow to automatically transform a sequential code into an equivalent parallel one, some of the best examples are YUCCA and the Intel C++ compiler. 
+Lately appeared also automatic parallelization tools; these softwares allow to automatically transform a sequential code into an equivalent parallel one, like YUCCA and the Intel C++ compiler. 
 
-Lastly it is worth to mention briefly GPU, that have become accessible to programmers with the release of tools like Nvidia's CUDA or the open-source OpenCL. These libraries allow the user to easily run code on the GPU; of course the program to run must have some particular features because GPU are still not general purpose. 
+Lastly it is worth to mention briefly GPUs, that have become accessible to programmers with the release of tools like Nvidia's CUDA or the open-source OpenCL. These libraries allow the user to easily run code on the GPU; of course the program to run must have some particular features because GPU are still not general purpose. 
 
-In this thesis there was the necessity to find two multi-thread libraries, one used by the input program to describe its parallel sections and the other to run the input program with the static custom schedule. 
+It was necessary to find two multi-threaded libraries, one used by the input program to describe its parallel sections and the other to run the input program with the static custom schedule, in described framework.
 
-The first library had to satisfy the following requirements. It has to allow to transform easily a given sequential real\-time code into a parallel one, without upsetting too much the original structure of the code; given that these kind of code have been usually deeply tested and must meet strict requirements.
+The first library has to satisfy the following requirements: it has to allow to transform easily a given sequential \emph{real-time} code into a parallel one, without upsetting too much the original structure of the code, given that these kind of code have been usually deeply tested and must meet strict requirements.
 
-What stated above is important also because part of the thesis is to extract informations from the parallel code, such as to distinguish between two parallels regions of code and understand precedences and dependencies between blocks of code. These informations are vital to be able to transform the code in a set of tasks and to provide to the scheduler algorithm the most accurate parameters. Furthermore the parallel code has to be instrumented both to profile it and to divide it into tasks for the final execution. The analysis of the various frameworks didn’t involved their execution performance as the aim of the thesis is to use the library calls just to create a database containing the information regarding the parallel structure of the code.  
+What stated above is also crucial since one of the steps of the tool is to extract informations from the parallel code, such as the differences between two parallels regions of code and their precedences and dependencies. These informations are fundamental to be able to transform the code in a set of tasks and to provide to the schedule algorithm the most accurate parameters. Furthermore the parallel code has to be instrumented both to profile it and to divide it into tasks for the final execution. The analysis of the various libraries didn’t focus on their execution performance as the aim of the tool is to use the library calls just to get the structure of the parallel code.
 
-For these reasons OpenMP has soon been considered the best choice. OpenMP behaviour is described in the chapter~\ref{chap:openmp}, here will be roughly presented some of its features, that are necessary to understand the reason of the choice.  
+\emph{OpenMP} resulted as the best choice and its behaviour is described in full details in chapter~\ref{openmp}. The main motivations that brought to this decision are the following. First of all  \emph{OpenMP} has a minimal code overhead since it just adds annotations inside the original sequential code, without any needs of changing its structure.  \emph{OpenMP} works embedding pieces of code inside C++ scopes and adding annotations to each of these scopes by mean of pragma constructs. The scopes automatically identify the distinct code blocks (tasks) and also give immediately some information about the dependencies among them. The use of pragmas is very convenient as they are skipped by the compiler if not informed with a specific flag. This implies that, given an  \emph{OpenMP} code, to run it sequentially is just enough to not inform the compiler of the presence of  \emph{OpenMP}; this feature will be usefull to profile the code. Finally  \emph{OpenMP} is well supported by the main compilers and it has a strong and large develop community, including big companies such as Intel and IBM.  
 
-First of all OpenMP is minimally invasive as it just adds annotations inside the original sequential code, without any needs of changing its structure. OpenMP works embedding pieces of code inside scopes and adding annotations to each of these scopes by means of the pragma construct. The scopes automatically identify the distinct blocks of code (tasks) and also give immediately some information about the dependencies among the differents blocks. The use of pragmas is very convenient as they are skipped by the compiler if not informed with a specific flag. This implies that, given an OpenMP code, to run it sequentially is just enough to not inform the compiler of the presence of the OpenMP. This feature will be usefull to profile the code. Finally OpenMP is well supported by the main compilers and it has a strong and large community developing it, including big companies such as Intel.  
-
-The second library had instead opposite requirements as it has to be highly efficient. For this reason has been chosen the C++ standard library. Since the release of the C++11 standard, the C++ standard library was provided with threads, mutex, semaphore and condition variables. This library has the drawback of being not easy to use when coming to complicated and structured tasks, but on the other side it is fully customizable as it allows to instantiate and use directly system threads. It provides the chance to directly tuning the performance of the overall program and differently from the other parallelization tools the \emph{std} library allows to allocate each task on a specific thread.
+The second library has instead opposite requirements as it has to be highly efficient; for this reason the C++ standard library has been chosen. Since the release of C++11 standard, the C++ standard library was provided with threads, mutexes, semaphores and condition variables. This library has the drawback of being not easy to use when coming to complicated and structured tasks, but on the other hand it is fully customizable as it allows to instantiate and use directly system threads. It provides the chance to directly tune the performance of the whole program and it allows to allocate each task on a specific thread, unlike the other parallelization tools.
 
 \section{The OpenMP standard}
 \label{openmp}
