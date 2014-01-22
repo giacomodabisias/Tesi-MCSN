@@ -12,6 +12,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage{listings}
 \usepackage{color}
+\usepackage{float}
 
 
 \pagestyle{plain}
@@ -185,7 +186,7 @@ The developed tool works accordingly to the following steps:
 Picture \ref{framework} gives a visual representation of the framwork.
 
 
-\begin{figure}[ht!]
+\begin{figure}[H]
 \centering
 \includegraphics[width = 160mm, height = 180mm]{framework.png}
 \caption{The famework structure}
@@ -195,9 +196,9 @@ Picture \ref{framework} gives a visual representation of the framwork.
 
 \section{A simple example}
 
-A simple example has been developed in order to show how the tool works in each step.
+A simple example has been developed in order to show how the tool works in each step. Given the \emph{OpenMP} semantic described before, the two \begin{bf}$\#$pragma omp section\end{bf} are executing in parallel abd synchronize at the end of the \begin{bf}$\#$pragma omp parallel private(bar)\end{bf}. The clause \emph{private(bar)} makes the \emph{bar} variable private to each thread in order to have no race condition. To execute the code with some timing constrains some code has been added inside of the for loop which is not relevant for the explaination purpose.
 
-\lstset{language=C++}
+\lstset{language=C++}[H]
 \begin{lstlisting}
 
 #include <omp.h>
@@ -268,7 +269,7 @@ To visualize the code structure, parallel code execution and the function call g
 \end{itemize}
 In the call graph each node invoking a function containing pragmas is connected to the function subgraph by a directed arch fig:\ref{call_graph}; the execution flow continues after the function call terminates and resumes in the children of the caller node. The semantic of the execution is the same as the one of the flow graph.
 
-\begin{figure}[ht!]
+\begin{figure}[H]
 \centering
 \includegraphics[width = 130mm, height = 76mm]{call_graph.png}
 \caption{call graph example}
@@ -370,7 +371,7 @@ The new data is added to the flow graph previously produced to be used later in 
 
 The problem of finding the best possible schedule on a multicore architecture is known to be a \emph{NP} hard problem. Given $N$ tasks and $M$ computing cores, the problem consists of creating $K$, possibly lower than $M$, execution flows in order to assign each task to a single flow. Each flow represents a computing core onto which the task should be run. To find a good solution a recursive algorithm has been developed which, by taking advantage of a search tree fig:\ref{search_tree}, tries explore all possible solutions, pruning "bad" brenches as soon as possible. Often the algorithm could not finish in a reasonable time due to the big number of possible solutions; to solve this problem a timer has been added to stop the computation after a certain amount of time given as input. \\
 
-\begin{figure}[ht!]
+\begin{figure}[H]
 \centering
 \includegraphics[width = 130mm, height = 76mm]{search_tree.png}
 \caption{search tree}
