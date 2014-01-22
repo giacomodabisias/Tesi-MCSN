@@ -198,8 +198,8 @@ Picture \ref{framework} gives a visual representation of the framwork.
 
 A simple example has been developed in order to show how the tool works in each step. Given the \emph{OpenMP} semantic described before, the two \begin{bf}$\#$pragma omp section\end{bf} are executing in parallel abd synchronize at the end of the \begin{bf}$\#$pragma omp parallel private(bar)\end{bf}. The clause \emph{private(bar)} makes the \emph{bar} variable private to each thread in order to have no race condition. To execute the code with some timing constrains some code has been added inside of the for loop which is not relevant for the explaination purpose.
 
-\lstset{language=C++}[H]
-\begin{lstlisting}
+\lstset{language=C++}
+\begin{lstlisting}[caption=Sample code, label=code]
 
 #include <omp.h>
 
@@ -280,11 +280,10 @@ In the call graph each node invoking a function containing pragmas is connected 
 \section{Intrumentation for profiling}
 \section{Profiling}
 
-The priviously instrumented code is first executed $N$ times, which is given as input parameter, using as arguments the data contained in a specific text file. At each iteration the algorithm produces, for each function and pragma, their execution time and, in case of a $\#$pragma omp for or $\#$pragma omp parallel for, also the number of executed cycles. This data is gathered during the $N$ iterations and then the mean value of the execution time, executed loops and variance for each node is produced and saved in a log file. 
-Ex:
+The priviously instrumented code is first executed $N$ times, which is given as input parameter, using as arguments the data contained in a specific text file. At each iteration the algorithm produces, for each function and pragma, their execution time and, in case of a $\#$pragma omp for or $\#$pragma omp parallel for, also the number of executed cycles. This data is gathered during the $N$ iterations and then the mean value of the execution time, executed loops and variance for each node is produced and saved in a log file code:\ref{log}. 
 
 \lstset{language=XML}
-\begin{lstlisting}
+\begin{lstlisting}[caption=Example log file, label=log]
 <Log_file>
   <Hardware>
     <NumberofCores>4</NumberofCores>
@@ -319,13 +318,13 @@ Ex:
 ...
 \end{lstlisting}
 
-The new data is added to the flow graph previously produced to be used later in the scheduling algorithm. This graph is then saved as \emph{XML} file by saving nodes and edged separately, giving each a unique identifier.
+The new data is added to the flow graph previously produced to be used later in the scheduling algorithm. This graph is then saved as \emph{XML} file by saving nodes and edged separately, giving each a unique identifier code:\ref{complete_graph}.
 
 
 \lstset{language=XML}
-\begin{lstlisting}
+\begin{lstlisting}[caption=Enhanced graph, label=complete_graph]
 <File>
-  <Name>source_exctractor/test_cases/thesis_test/omp_test.cpp</Name>
+  <Name>omp_test.cpp</Name>
   <GraphType>flow</GraphType>
   <Function id="30">
     <Name>work</Name>
@@ -369,7 +368,7 @@ The new data is added to the flow graph previously produced to be used later in 
 
 \section{Schedule generation}
 
-The problem of finding the best possible schedule on a multicore architecture is known to be a \emph{NP} hard problem. Given $N$ tasks and $M$ computing cores, the problem consists of creating $K$, possibly lower than $M$, execution flows in order to assign each task to a single flow. Each flow represents a computing core onto which the task should be run. To find a good solution a recursive algorithm has been developed which, by taking advantage of a search tree fig:\ref{search_tree}, tries explore all possible solutions, pruning "bad" brenches as soon as possible. Often the algorithm could not finish in a reasonable time due to the big number of possible solutions; to solve this problem a timer has been added to stop the computation after a certain amount of time given as input. \\
+The problem of finding the best possible schedule on a multicore architecture is known to be a \emph{NP} hard problem. Given $N$ tasks and $M$ computing cores, the problem consists of creating $K$, possibly lower than $M$, execution flows in order to assign each task to a single flow. Each flow represents a computing core onto which the task should be run. To find a good solution a recursive algorithm has been developed which, by taking advantage of a search tree fig:\ref{search_tree}, tries explore all possible solutions, pruning "bad" brenches as soon as possible. Often the algorithm could not finish in a reasonable time due to the big number of possible solutions; to solve this problem a timer has been added to stop the computation after a certain amount of time given as input. 
 
 \begin{figure}[H]
 \centering
