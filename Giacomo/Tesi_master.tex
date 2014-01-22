@@ -259,7 +259,7 @@ Depending on the specific pragma special classes are derived like \emph{For\_Nod
 
 To create the first graph the tool starts parsing the \emph{XML} file and creating a proper object for each encountered pragma. It is important to notice that also pragmas which are not actually executed will be inserted in the graphs. 
 
-The second graph is created taking care of the execution semantic given by \emph{OpenMp}. Again the \emph{XML} file is parsed and an object is created for each pragma. Each object is then connected with the proper ones and if necessary fake \emph{Barrier} nodes are added to guarantee the synchronization given by the standard. This special nodes are added whenever a "control" pragma is encountered; this is due to the fact that this type of pragmas use to have more than one children, creating a sort of diamond topology, which have to synchronize at the end of the pragma block fig:\ref{call_graph}.
+The second graph is created taking care of the execution semantic given by \emph{OpenMp}. Again the \emph{XML} file is parsed and an object is created for each pragma. Each object is then connected with the proper ones and if necessary fake \emph{Barrier} nodes are added to guarantee the synchronization given by the standard. This special nodes are added whenever a "control" pragma is encountered; this is due to the fact that this type of pragmas use to have more than one children, creating a sort of diamond topology, which have to synchronize at the end of the pragma block fig \ref{call_graph}.
 
 \section{Visual graph generation}
 
@@ -269,7 +269,7 @@ To visualize the code structure, parallel code execution and the function call g
 \item{All nodes which have a single parent in common can execute in parallel (this is shown by having the same color for arches which can execute in parallel).}
 \item{All nodes have to synchronize on barrier nodes.}
 \end{itemize}
-In the call graph each node invoking a function containing pragmas is connected to the function subgraph by a directed arch fig:\ref{call_graph}; the execution flow continues after the function call terminates and resumes in the children of the caller node. The semantic of the execution is the same as the one of the flow graph.
+In the call graph each node invoking a function containing pragmas is connected to the function subgraph by a directed arch fig \ref{call_graph}; the execution flow continues after the function call terminates and resumes in the children of the caller node. The semantic of the execution is the same as the one of the flow graph.
 
 \begin{figure}[H]
 \centering
@@ -282,7 +282,7 @@ In the call graph each node invoking a function containing pragmas is connected 
 \section{Intrumentation for profiling}
 \section{Profiling}
 
-The priviously instrumented code is first executed $N$ times, which is given as input parameter, using as arguments the data contained in a specific text file. At each iteration the algorithm produces, for each function and pragma, their execution time and, in case of a $\#$pragma omp for or $\#$pragma omp parallel for, also the number of executed cycles. This data is gathered during the $N$ iterations and then the mean value of the execution time, executed loops and variance for each node is produced and saved in a log file code:\ref{log}. 
+The priviously instrumented code is first executed $N$ times, which is given as input parameter, using as arguments the data contained in a specific text file. At each iteration the algorithm produces, for each function and pragma, their execution time and, in case of a $\#$pragma omp for or $\#$pragma omp parallel for, also the number of executed cycles. This data is gathered during the $N$ iterations and then the mean value of the execution time, executed loops and variance for each node is produced and saved in a log file code \ref{log}. 
 
 \lstset{language=XML}
 \begin{lstlisting}[caption=Example log file, label=log]
@@ -320,7 +320,7 @@ The priviously instrumented code is first executed $N$ times, which is given as 
 ...
 \end{lstlisting}
 
-The new data is added to the flow graph previously produced to be used later in the scheduling algorithm. This graph is then saved as \emph{XML} file by saving nodes and edged separately, giving each a unique identifier code:\ref{complete_graph}.
+The new data is added to the flow graph previously produced to be used later in the scheduling algorithm. This graph is then saved as \emph{XML} file by saving nodes and edged separately, giving each a unique identifier code \ref{complete_graph}.
 
 
 \lstset{language=XML}
@@ -370,7 +370,7 @@ The new data is added to the flow graph previously produced to be used later in 
 
 \section{Schedule generation}
 
-The problem of finding the best possible schedule on a multicore architecture is known to be a \emph{NP} hard problem. Given $N$ tasks and $M$ computing cores, the problem consists of creating $K$, possibly lower than $M$, execution flows in order to assign each task to a single flow. Each flow represents a computing core onto which the task should be run. To find a good solution a recursive algorithm has been developed which, by taking advantage of a search tree fig:\ref{search_tree}, tries explore all possible solutions, pruning "bad" brenches as soon as possible. Often the algorithm could not finish in a reasonable time due to the big number of possible solutions; to solve this problem a timer has been added to stop the computation after a certain amount of time given as input. 
+The problem of finding the best possible schedule on a multicore architecture is known to be a \emph{NP} hard problem. Given $N$ tasks and $M$ computing cores, the problem consists of creating $K$, possibly lower than $M$, execution flows in order to assign each task to a single flow. Each flow represents a computing core onto which the task should be run. To find a good solution a recursive algorithm has been developed which, by taking advantage of a search tree fig \ref{search_tree}, tries explore all possible solutions, pruning "bad" brenches as soon as possible. Often the algorithm could not finish in a reasonable time due to the big number of possible solutions; to solve this problem a timer has been added to stop the computation after a certain amount of time given as input. 
 
 \begin{figure}[H]
 \centering
