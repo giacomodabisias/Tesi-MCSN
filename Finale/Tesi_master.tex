@@ -214,40 +214,44 @@ With this subset of \emph{OpenMP} it is possible to create all the standard comp
 
 \section{Clang as LLVM frontend}
 
-Clang \cite{clang} is a compiler front-end for the C, C++ and Objective-C programming languages. It relies on LLVM as its back-end. 
+Clang \cite{clang} is a compiler front-end for the C, C++ and Objective-C programming languages and tit relies on LLVM as back-end. 
 
-A compiler front-end is in charge of analyzing the source code to build the intermediate representation (IR) which is an internal representation of the program. The front\-end is usually implemented as three phases: lexing, parsing, and semantic analysis. This helps to improve modularity and separation of concern and allows programmers to use the front\-end as a library in their projects. 
+A compiler front-end is in charge of analyzing the source code to build the intermediate representation (IR) which is an internal representation of the program. The front-end is usually implemented in three phases: lexing, parsing and semantic analysis. This helps to improve modularity and separation of concern and it allows programmers to use the front-end as a library in their projects. 
 
-The IR is used by the compiler back\-end (LLVM in the case of Clang), that transforms it into machine language, operating in three macro phases: analysis, optimization and code generation. 
+The IR is used by the compiler back-end (LLVM in the case of Clang) which transforms it into machine language, operating in three macro phases: analysis, optimization and code generation. 
 
 The Clang project was started by Apple and was open-sourced in 2007. Nowadays its development is completely open-source and besides Apple there are several major software companies involved, such as Google and Intel.
 
-Clang is designed to be highly compatible with GCC, Its command line interface is similar to and shares many flags and options with GCC. Clang was chosen for the development of the thesis over GCC for three main reasons. Clang has proven to be faster and less memory consuming in many situations \cite{clanggcc}. Clang has a modular, library based architecture. This structure allows the programmer to easily embed Clang’s functionalities inside its own code. Each of the libraries that forms Clang has its specific role and set of functions; in this way the programmer can simply use just the libraries he needs, without having to study the whole system. On the other side GCC design makes difficult to decouple the front-end from the rest of the compiler.
-The third and most important Clang’s feature is that it provides the possibility to perform code analysis, extract informations from the code and, most important, to perform source-to-source transformation.
+Clang is designed to be highly compatible with GCC and its command line interface is similar to and shares many flags and options with it. Clang was chosen for the development of this framework over GCC for three main reasons:
+\begin{itemize}
+ \item Clang has proven to be faster and less memory consuming in many situations \cite{clanggcc}. 
+ \item Clang has a modular, library based architecture and this structure allows the programmer to easily embed Clang’s functionalities inside its code. Each of the libraries that forms Clang has its specific role and set of functions; in this way the programmer can just simply use the libraries he needs, without having to study the whole system. On the other side GCC's design makes it difficult to decouple the front-end from the rest of the compiler.
+ \item Clang provides the possibility to perform code analysis, information extraction and, most important, source-to-source transformation.
+\end{itemize}
 
-Clang was not the only possibility out of GCC, also the Rose Compiler and Mercurium were viable options. 
+Clang was not the only possibility out of GCC, since also the Rose Compiler and Mercurium were viable options \cite{rose}. 
 
-The strength of Clang, is in its implementation of the Abstract Syntax Tree (AST). Clang’s AST is different from ASTs produced by some other compilers in that it closely resembles both the written C++ code and the C++ standard.
+The strength of Clang is in its implementation of the Abstract Syntax Tree (AST). Clang’s AST is different from ASTs produced by some other compilers in that it closely resembles both the written C++ code and the C++ standard.
 
-The AST is accessed through the \emph{ASTContext} class. This class contains a reference to the \emph{TranslationUnitDecl} class which is the entry point into the AST (the root). It also provides the methods to traverse the AST.
+The AST is accessed through the \emph{ASTContext} class. This class contains a reference to the \emph{TranslationUnitDecl} class which is the entry point into the AST (the root) and it also provides the methods to traverse it.
 
-Clang’s AST nodes are modeled on a class hierarchy that does not have a common ancestor. Instead, there are multiple larger hierarchies for basic node types. Many of these hierarchies have several layers and bifurcations so that the whole AST is composed by hundreds of classes for a total of more than one hundred thousand lines of code. Basic types derive mainly from three main disjoint classes: \emph{Decl}, \emph{Type} and \emph{Stmt}. 
+Clang’s AST nodes are modeled on a class hierarchy that does not have a common ancestor; instead, there are multiple larger hierarchies for basic node types. Many of these hierarchies have several layers and branches so that the whole AST is composed by hundreds of classes for a total of more than one hundred thousand lines of code. Basic types derive mainly from three main disjoint classes: \emph{Decl}, \emph{Type} and \emph{Stmt}. 
 
-As the name suggests the classes that derive from the \emph{Decl} type represent all the nodes matching piece of code containing declaration of variables (\emph{ValueDecl}, \emph{NamedDecl}, \emph{VarDecl}), functions (\emph{FunctionDecl}), classes (\emph{CXXRecordDec}l) and also function definitions.
-  
-The Clang’s AST is fully type resolved and this is afforded using the \emph{Type} class which allows to describe all possible types (\emph{PointerType}, \emph{ArrayType}).
+As the name suggests, the classes that derive from the \emph{Decl} type represent all the nodes matching piece of code containing a declaration of variables (\emph{ValueDecl}, \emph{NamedDecl}, \emph{VarDecl}), functions (\emph{FunctionDecl}), classes (\emph{CXXRecordDec}l) and also function definitions.
 
-Lastly there is the \emph{Stmt} type which refereres to control flow (\emph{IfStmt}) and loop block of code (\emph{ForStmt}, \emph{WhileStmt}), expressions (\emph{Expr}), return command (\emph{ReturnStmt}), scopes (\emph{CompoundStmt}), etc.. 
+Clang’s AST is fully type resolved and this is afforded using the \emph{Type} class which allows to describe all possible types (\emph{PointerType}, \emph{ArrayType}).
 
-Together with the above three types there are other “glue” classes that allow to complete the semantic. The most remarkable ones are: the \emph{TemplateArgument} class, that, as the name suggests, allows to handle the template semantic and the \emph{DeclContex} class that is used to extend \emph{Decl} semantic and that will be shown later. 
+Lastly there is the \emph{Stmt} type which refereres to the control flow (\emph{IfStmt}) and loop block of code (\emph{ForStmt}, \emph{WhileStmt}), expressions (\emph{Expr}), return commands (\emph{ReturnStmt}), scopes (\emph{CompoundStmt}), \dots 
 
-To built the tree the nodes are connected to each other; in particular a node has references to its children. For example a \emph{ForStmt} would have a pointer to the \emph{CompoundStmt} containing its body, as well to the \emph{Expr} containing the condition and the \emph{Stmt} containing the initialization. Special case is the \emph{Decl} class that is designed not to have children thus can only be a leaf in the AST. There are cases in which a \emph{Decl} node is needed to have children, like for example a \emph{FunctionDecl}, which has to refer to the \emph{CompoundStmt} node containing its body or to the list of its parameters (\emph{ParmVarDecl}). The \emph{DeclContext} class has been designed to solve this issue. When a \emph{Decl} node needs to have children it can just extend the \emph{DeclContext} class and it will be provided with the rights to points to other nodes. 
+Together with the above mentioned three types, there are other “glue” classes that allow to complete the semantic. The most remarkable ones are: the \emph{TemplateArgument} class, that, as the name suggests, allows to handle the template semantic and the \emph{DeclContex} class which is used to extend \emph{Decl} semantic and will be explained later. 
 
-There are other two classes that are worth speaking about: \emph{SourceLocation} and \emph{SourceManager} class. The \emph{SourceLocation} class allows to map a node to the source code. The SourceManager instead provides the methods to calculate the location of each node. These classes are very powerful as they allow to retrieve both the start and the end position of a node in the code, giving the exact line and column number. For example given a \emph{ForStmt}, the \emph{SourceManager} is able to provide the line number of where the stmt starts and ends, but also the column number where the loop variable is declared or where the increment is defined.
+To built the tree the nodes are connected to each other; in particular a node has references to its children. For example a \emph{ForStmt} would have a pointer to the \emph{CompoundStmt} containing its body, as well as to the \emph{Expr} containing the condition and the \emph{Stmt} containing the initialization. A special case is the \emph{Decl} class which is designed not to have children and thus can only be a leaf in the AST. There are cases in which a \emph{Decl} node is needed to have children, like for example a \emph{FunctionDecl} which has to refer to the \emph{CompoundStmt} node containing its body or to the list of its parameters (\emph{ParmVarDecl}). The \emph{DeclContext} class has been designed to solve this issue; when a \emph{Decl} node needs to have children it can just extend the \emph{DeclContext} class and it will be provided with the rights to points to other nodes. 
 
-To traverse the AST the Clang provides the \emph{RecursiveASTVisitor} class. This is a very powerful and quite easy to learn interface that allows the programmer to visit all the AST’s nodes. The user can customize this interface in such a way it will trigger only on nodes he is interested about; for example the methods \emph{VisitStmt()} or \emph{VisitFunctionDecl()} are called each time a node of that type is encountered. Each AST’s node class contains getter methods to extract informations out of the code. For example a \emph{Stmt} class has a method to know what kind of \emph{Stmt} is the node, as \emph{IfStmt}, \emph{Expr}, \emph{ForStmt}, etc.. In turn \emph{ForStmt} class provides methods to find out the name of the loop variable, it’s initial value and the loop condition.
+There are two other classes that are worth mentioning: \emph{SourceLocation} and \emph{SourceManager} class. The \emph{SourceLocation} class allows to map a node to the source code. The \emph{SourceManager} instead provides the methods to calculate the location of each node. These classes are very powerful as they allow to retrieve both the start and the end position of a node in the code, giving the exact line and column number. For example given a \emph{ForStmt}, the \emph{SourceManager} is able to provide the line number of where the stmt starts and ends, but also the column number where the loop variable is declared or where the increment is defined.
 
-To better understand how the Clang’AST is structured, Code~\ref{astexemple} and~\ref{ast} contain a simple code and the associated AST.
+To traverse the AST, Clang provides the \emph{RecursiveASTVisitor} class. This is a very powerful and quite easy to learn interface that allows the programmer to visit all the AST’s nodes. The user can customize this interface in such a way that it will trigger only on nodes he is interested in; for example the methods \emph{VisitStmt()} or \emph{VisitFunctionDecl()} are called each time a node of that type is encountered. Each AST node class contains "getter" methods to extract informations out of the code. For example a \emph{Stmt} class has a method to know what kind of \emph{Stmt} the node is, as \emph{IfStmt}, \emph{Expr}, \emph{ForStmt}, \dots. In turn \emph{ForStmt} class provides methods to find the name of the looping variable, the initialization value and the looping condition.
+
+To better understand how the Clang’s AST is structured, Code~\ref{astexemple} and~\ref{ast} contain a simple dummy code and the associated AST.
 \newline
 \begin{lstlisting}[language=CCC, caption=Simple code., label=astexemple]
 class A {
@@ -309,13 +313,13 @@ TranslationUnitDecl
 \end{lstlisting}
 
 
-Clang supports the insertion of custom code inside the input one through the \emph{Rewriter} class. This class provides several methods that allow, specifying a \emph{SourceLocation}, to insert, delete and replace text; it also allows to replace a \emph{Stmt} object with another one. The programmer cannot know a priori the structure of the input source code, so the best way to insert the custom text, in the correct position, is during the parsing of the AST. It is in fact possible to access each node’s start and end \emph{SourceLocations} reference, to transform them in a line plus column number and insert the text at the end of the line or at line above or below, as needed by the program. 
+Clang supports the insertion of custom code through the \emph{Rewriter} class. This class provides several methods that allow, specifying a \emph{SourceLocation}, to insert, delete and replace code and it also allows to replace a \emph{Stmt} object with another one. The programmer cannot know a priori the structure of the input source code, so the best way to insert the custom text, in the correct position, is during the parsing of the AST. It is in fact possible to access each node’s start and end \emph{SourceLocations} reference, to transform them in a line plus column number and insert the text at the end of the line or at line above or below, as needed. 
 
-The inserted text and its position are stored during the parsing of the AST in a buffer inside the \emph{Rewriter} object; when the parsing is completed the buffer’s data is inserted in the code generating a new file. 
+The text to be rewritten and its position are stored, during the parsing of the AST, in a buffer inside the \emph{Rewriter} object; when the parsing is completed a new source file is generated with the buffer’s data inserted in it.  
 
-Clang’s support to pragmas and OpenMP is really recent. Intel provided an unofficial patched version of the original Clang, which fully supports the OpenMP 3.3 standard, in July 2013 and the patch has not yet been inserted in the official release. Although it is not an official release Intel has worked inline with the Clang community principle and design strategies and it also produced a good Doxygen documentation of the code. This patch works jointly with the Intel OpenMP Runtime Library \cite{intelomprtl}, which is open-source. 
+Clang’s support to pragmas and OpenMP is really recent. Intel provided an unofficial patched version of the original Clang, which fully supports the OpenMP 3.3 standard, in July 2013 and the patch has not yet been inserted in the official release. Although it is not an official release Intel, has worked inline with the Clang community principle and design strategies and it also produced a complete Doxygen documentation of the code. This patch works jointly with the Intel OpenMP Runtime Library \cite{intelomprtl} which is open-source. 
 
-For what concern the support to generic pragmas the only remarkable work, that goes close to this goal is the one of Simone Pellegrini. He indeed implemented a tool (Clomp \cite{clomp}) to support OpenMP pragmas in Clang. Clomp is implemented in a modular and layered way; this implies that the same structure can be easily used to support customized pragmas.
+For what concerns the support to generic pragmas the only remarkable work, that goes close to this goal is the one of Simone Pellegrini. He indeed implemented a tool (Clomp \cite{clomp}) to support OpenMP pragmas in Clang. Clomp is implemented in a modular and layered faschion which this implies that the same structure can be easily used to support customized pragmas.
  
 
 
@@ -323,14 +327,14 @@ For what concern the support to generic pragmas the only remarkable work, that g
 \chapter{Design}
 \section{The framework}
 
-The framework takes as input a C++ source code annotated with \emph{OpenMP} and translates each pragma block in a task. After that the tool searches for the best possible schedule that satisfies the tasks timing contrains. The source code is then executed with the given schedule and the help of a newly produced run-time support.
+The framework takes as input a C++ source code annotated with \emph{OpenMP} and translates each pragma block in a task. After that the tool searches for the best possible schedule which satisfies the tasks timing contrains. The source code is then executed with the given schedule and the help of a newly produced run-time support.
 
 The developed tool works accordingly to the following steps:
 \begin{itemize}
 \item{the \emph{AST}, Abstract Sintax Tree, of the source code is created using \emph{Clang}. From this all the relevant information of each \emph{OpenMP} pragma are extracted and inserted in a properly formatted \emph{XML} file.}
 \item{Each pragma in the source code is substituted with a proper profiling function call. The execution of the new code produces a log file which includes, for each pragma, timing informations.  }
 \item{The new source code and the pragma \emph{XML} file are given as imput to a second tool written in \emph{Python}. This tool parses the \emph{XML} file and creates a graph which represents the parallel execution flow of the tasks. After that it executes the given profiled source code $N$ times creating statistics of the execution. The graph, enhanced with the new profiling information, is saved as a new \emph{XML} file}
-\item{ A scheduling algorithm is run on the created graph to find the best possible scheduling sequence accordingly to the profiling information. The found scheduling is then checked to be compatible with the precedence contraints given by the \emph{OpenMP} standard and, in case, a \emph{XML} schedule file is created.}
+\item{ A scheduling algorithm is run on the created graph to find the best possible scheduling sequence, accordingly to the profiling information. The found scheduling is then checked to be compatible with the precedence contraints given by the \emph{OpenMP} standard and, in case, a \emph{XML} schedule file is created.}
 \item{ The source code is rewritten substituting to each pragma a proper code block for the creation of the tasks. During the execution each task is passed to the run-time support which allocates it accordingly to the previously creted schedule.}
 \end{itemize}
 
@@ -347,7 +351,7 @@ Picture \ref{framework} gives a visual representation of the framwork.
 
 \section{A simple example}
 \label{example}
-A simple example has been developed in order to show how the tool works in each step. Given the \emph{OpenMP} semantic described before, the two \begin{bf}$\#$pragma omp section\end{bf} are executing in parallel abd synchronize at the end of the \begin{bf}$\#$pragma omp parallel private(bar)\end{bf}. The clause \emph{private(bar)} makes the \emph{bar} variable private to each thread in order to have no race condition. To execute the code with some timing constrains some code has been added inside of the for loop which is not relevant for the explaination purpose.
+A simple example has been developed in order to show how the tool works in each step. Given the \emph{OpenMP} semantic described before, the two \begin{bf}$\#$pragma omp section\end{bf} are executing in parallel and synchronize at the end of the \begin{bf}$\#$pragma omp parallel\end{bf}. The clause \emph{private(bar)} makes the \emph{bar} variable private to each thread in order to have no race condition. To execute the example with some timing constrains some code has been added inside of the for loop which is not relevant for the explaination purpose.
 
 \lstset{language=CCC}
 \begin{lstlisting}[caption=Sample code, label=code]
@@ -390,36 +394,36 @@ int main(int argc, char* argv[]) {
 \section{Analysis}
 \subsection{Code}
 
-In this chapter will be presented and justified the choices that have been made during the parsing of the input source code; in particular which features have been extracted and why.
+Chapter presents and justifies the choices that have been made during the parsing of the input source code; in particular which features have been extracted and why.
 
-First of all will be presented how are translated OpenMP pragma in the Clang’s AST. Our framework targets only a small part of the OpenMP environments, in particular only \emph{parallel}, \emph{sections} (\emph{single}), \emph{section} (\emph{task}) and \emph{for} pragmas. These pragmas have the common property that are all transformed into \emph{Stmt} nodes in the AST. Each of these pragmas is represented in the AST by a specific class: \emph{OMPParallelDirecetive}, \emph{OMPSectionsDirective} and so on. All these class inherit from the \emph{OMPExecutableDirective} class which in turn derives from the \emph{Stmt} class. 
+First of all it will be shown how OpenMP pragmas are translated in the Clang’s AST. The framework targets only a small part of the OpenMP environments, in particular only \emph{parallel}, \emph{sections} (\emph{single}), \emph{section} (\emph{task}) and \emph{for} pragmas. These pragmas have the common property that they are all transformed into \emph{Stmt} nodes in the AST. Each of these pragmas is represented in the AST by a specific class: \emph{OMPParallelDirecetive}, \emph{OMPSectionsDirective} and so on. All these classes inherit from the \emph{OMPExecutableDirective} class which in turn derives from the \emph{Stmt} class. 
 
-These classes has three main functions, one to know the name of the directive associated to it, one to retrieve the list of the clauses associated to the pragma and the last to get the stmt associated to the pragma. Based on this last function the above directives can be divided into two groups, the first containing the \emph{for} pragma and the second all the others. The difference between the two groups is that the \emph{for} pragma has associated a \emph{ForStmt}, while the other have associated a \emph{CompoundStmt}. All the clauses derived from a common primitive ancestor which is the \emph{OMPClause} class. 
+These classes have three main functions, one to know the name of the directive associated to it, one to retrieve the list of the clauses and one to get the associated stmt. Based on this last function the above directives can be divided into two groups, the first containing the \emph{for} pragma and the second all the others. The difference between the two groups is that the \emph{for} pragma has associated a \emph{ForStmt}, while the other have associated a \emph{CompoundStmt}. All the clauses derives from a common primitive ancestor which is the \emph{OMPClause} class. 
 
-A real-time program, to be scheduled, needs to provide some informations about its time constraints, in particular the deadlines; these data can be provided in a separate file or directly inside the code. In this framework has been chosen the second approach and it has been done using the OpenMP clauses. The standard clauses clearly don’t allow to specify the deadline of a pragma, so has been created a patch at the standard Clang to support of the \emph{deadline} clause. This patch can be further enhanced to support other custom clauses, such as the activation time or the period of the pragma.
+A real-time program, to be scheduled, needs to provide some informations about its timing constraints, in particular the deadlines; this data can be provided in a separate file or directly inside of the code. In this framework the second approach has been chosen and it has been done using the OpenMP clauses. The standard clauses clearly don’t allow to specify the deadline of a pragma, so a patch has been added to the standard Clang to support the \emph{deadline} clause. This patch can be further enhanced to support other custom clauses, such as the activation time or the period.
 
-The thesis’s framework parses the source code customizing the \emph{RecursiveASTVisitor} interface; in particular it overrides two methods: \emph{VisitFunctionDecl()} and \emph{VisitStmt}. Each time the parser comes up with a \emph{FunctionDecl} object or a \emph{Stmt} object it invokes the associated custom function \emph{VisitFunctionDecl()} adds all objects representing a function definition to a \emph{FIFO} list.  At the end of the parsing this list will contain the definition of all the functions in the input source code. \emph{VisitStmt()} instead triggers on each stmt, it checks the type and if it is an \emph{OMPExecutableDirective} node it adds it to another \emph{FIFO} list, that at the end will contain all the pragmas. The two lists have the property that the order of their elements is given by the positions of the nodes in the source code, the smaller the starting line of a node the smaller its position in the list. This property is granted by the fact that the input code is parsed top down.
+The framework parses the source code customizing the \emph{RecursiveASTVisitor} interface; in particular it overrides two methods: \emph{VisitFunctionDecl()} and \emph{VisitStmt()}. Each time the parser comes up with a \emph{FunctionDecl} object or a \emph{Stmt} object it invokes the associated custom function. \emph{VisitFunctionDecl()} adds all objects representing a function definition to a \emph{FIFO} queue.  At the end of the parsing this queue will contain the definition of all the functions in the input source code. \emph{VisitStmt()} instead triggers on each stmt, checking the type and in case of an \emph{OMPExecutableDirective} node it adds it to another \emph{FIFO} queue, that at the end will contain all the pragmas. The two queueus have the property that the order of their elements is given by the positions of the nodes in the source code: the smaller the starting line, the smaller its position in the list. This property is granted by the fact that the input code is parsed top down.
 
-Once all the pragmas are in the list, the tool inspects each node, extracting information and saving them in a custom class. The newly created objects are used to build a pragmas tree. Since an input code can have multiple functions containing OpenMP pragmas and at static time it is not possible to understand where and when these functions will be called, the framework builds different pragmas tree for each function containing pragmas. It is possible to know, for each function, at which line its body starts and ends and so it is possible to match each pragma to the correct function. The tree structure is given by the nested architecture of the OpenMP pragmas, that has been described in chapter~\ref{openmp}. The built of the tree is quite simple and straightforward as there are several properties that come to handy. The extracted pragmas in the list are ordered according to their starting line, so pragmas belonging to the same function are continuous. Every time a pragma is popped from the list, its starting line is checked, if it belongs to the same function of the previous node it is added to the current tree, otherwise it will be the root of a new tree. Another property is that a pragma is a child of another pragma, only if it is nested inside it; to be nested a node must have its starting line greater and its ending line smaller than the other one.  The last property, that still comes from the ordered pragma list and from the definition of nested, is that a node can be nested only in its previous node (in the list) or in the father of the previous node, or in the father of the father and so on.
+Once all the pragmas are in the queue, the tool inspects each node, extracting information and saving them in a custom class and the newly created objects are used to build a pragma tree. Since an input code can have multiple functions containing OpenMP pragmas and at static time it is not possible to understand where and when these functions will be called, the framework builds different pragma trees, one for each function. It is possible to know, for each function, at which line its body starts and ends and so it is possible to match each pragma to the correct function. The tree structure is given by the nested architecture of the OpenMP pragmas, that has been described in chapter~\ref{openmp}. The building of the tree is quite simple and straightforward as there are several properties that comes handy. The extracted pragmas in the list are ordered according to their starting line, so pragmas belonging to the same function are continuous. Every time a pragma is popped from the list, its starting line is checked and if it belongs to the same function of the previous node it is added to the current tree, otherwise it will be the root of a new tree. Another property is that a pragma is a child of another pragma only if it is nested inside it; to be nested a node must have its starting line greater and its ending line smaller than the other one.  The last property, that still comes from the ordered pragma list and from the definition of nested, is that a node can be nested only in its previous node (in the list) or in the father of the previous node, or in the father of the father and so on.
 
-During the creation of the trees each AST node is transformed in a custom object that will carry only the information useful for the framework. 
+During the creation of the trees each AST node is transformed in a custom object that will contain only the information useful for the framework: 
 
 \begin{itemize}
-\item Pragma type: parallel, sections, for, etc.
+\item pragma type: parallel, sections, for, \dots.
 \item Start line and end line of the statement associated with the pragma.
 \item A reference to the object containing the information of the function where the pragma is defined.
 \item A reference to the original AST node.
-\item The list of the pragma’s clauses and of the variables involved. 
+\item The list of the pragma clauses and of the variables involved. 
 \item The list of its children nodes and a reference to its parent node.
-\item In case the node is of type \emph{for} or \emph{parallel for} it contains the reference to another object that contains all the information of the for:
+\item In case the node is of type \emph{for} or \emph{parallel for} it contains the reference to another object that contains all the information of the For declaration:
 \begin{itemize}
-\item the name of the loop var, its type and initial value.
+\item the name of the looping variable, its type and initial value.
 \item The name of the condition variable, or the condition value.
 \item The increment.
 \end{itemize}
 \end{itemize}
 
-The framework support only the parsing of for with a simple structure: \newline
+The framework supports only the parsing of For statement with the following structure: \newline
 
 $parameter = value \ | \ var$
 
@@ -430,12 +434,12 @@ $i\_op \ = \ ++ \ | \ -- \ | \ += \ | \ -= \ | \ *=$
 $for([type] \ var \ = \ parameter; \ var \ c\_op \ parameter; \ var \ i\_op \ [parameter])$ \newline
 
 
-The \emph{ForStmt} class fully supports the C++ For semantic, this means that it would be possible for the framework to support any kind of For declaration. It has been chosen to support only a basic structure because the effort required to expand the semantic it’s very high and, with some slightly modification to the code, it is possible to support almost any possible scenarios. For example a for declaration like this:
+The \emph{ForStmt} class fully supports the C++ For semantic and this means that it would be possible for the framework to support any kind of For declaration. It has been choosen to support only a basic structure because the effort required to expand the semantic it’s very high and, with some slightly modification to the code, it is possible to support almost any possible scenarios. For example a For declaration like this: \\
 
 \begin{lstlisting}[language=CCC]
 for (int i = foo(); i < bar*baz; i ++)
-\end{lstlisting}
-can be translated as:
+\end{lstlisting} 
+can be translated as: \\
 
 \begin{lstlisting}[language=CCC]
 int init_val = foo();
@@ -444,7 +448,7 @@ for(int i = init_val; i < cond_val; i ++)
 \end{lstlisting}
 becoming understandable by the framework.
 
-Once all the pragmas have been translated and put in a tree, the new data structures are translated in the xml format. Each object is described either by a \emph{Pragma} tag or by a \emph{Function} tag. The two tags contains a list of other tags, one for  each of the variables contained in the tree’s objects. The semantic of the xml allows also to translate perfectly the original tree structure. This is done nesting \emph{Pragma} tags one inside the other. The outermost tags are of type \emph{Function}. Each function is the root of a tree so it will contain one or more \emph{Pragma} tags. In turn each \emph{Pragma} tag, if has children in the original tree, will contain other \emph{Pragma} tags. Code~\ref{xmlpragma} represent e portion of the xml generated from the sample code in paragraph~\ref{example}.
+Once all the pragmas have been translated and added in a tree, the new data structures are translated in XML format. Each object is described either by a \emph{Pragma} tag or by a \emph{Function} tag. The two tags contains a list of other tags, one for  each of the variables contained in the tree’s objects. The semantic of XML allows also to translate the original tree structure without loosing informations and this is done by nesting \emph{Pragma} tags one inside the other. The outermost tags are of type \emph{Function}; each function is the root of a tree so it will contain one or more \emph{Pragma} tags. In turn each \emph{Pragma} tag, if containing children nodes in its original tree, will contain other \emph{Pragma} tags. Code~\ref{xmlpragma} represent a portion of the XML code generated from the sample code in paragraph~\ref{example}.
 
 \begin{lstlisting}[language=XML, caption=XML file of the pragma structure of Code~\ref{code}., label=xmlpragma]
 <File>
@@ -500,7 +504,8 @@ Once all the pragmas have been translated and put in a tree, the new data struct
 				...
 </File>
 \end{lstlisting}
-This xml file will then be passed to the scheduler algorithm, that will add a semantic to each node to build a parallelization graph, that will be used to create the tasks’ schedule. The original trees are not discarded and they will be used to produce the final code, during a following parsing of the code.
+
+This XML file will then be passed to the scheduler algorithm, that will add a semantic to each node to build a parallelization graph  which will be then used to create the tasks’ schedule. The original trees are not discarded and they will be used to produce the final code during a following parsing step.
 
 \subsection{Parallelism}
 
