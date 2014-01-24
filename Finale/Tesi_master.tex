@@ -14,6 +14,9 @@
 \usepackage{color}
 \usepackage{float}
 \usepackage{geometry}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
 %\usepackage[colorlinks]{hyperref}
 %\hypersetup{urlcolor=darkblue}
 
@@ -406,6 +409,43 @@ The framework parses the source code customizing the \emph{RecursiveASTVisitor} 
 
 Once all the pragmas are in the queue, the tool inspects each node, extracting information and saving them in a custom class and the newly created objects are used to build a pragma tree. Since an input code can have multiple functions containing OpenMP pragmas and at static time it is not possible to understand where and when these functions will be called, the framework builds different pragma trees, one for each function. It is possible to know, for each function, at which line its body starts and ends and so it is possible to match each pragma to the correct function. The tree structure is given by the nested architecture of the OpenMP pragmas, that has been described in chapter~\ref{openmp}. The building of the tree is quite simple and straightforward as there are several properties that comes handy. The extracted pragmas in the list are ordered according to their starting line, so pragmas belonging to the same function are continuous. Every time a pragma is popped from the list, its starting line is checked and if it belongs to the same function of the previous node it is added to the current tree, otherwise it will be the root of a new tree. Another property is that a pragma is a child of another pragma only if it is nested inside it; to be nested a node must have its starting line greater and its ending line smaller than the other one.  The last property, that still comes from the ordered pragma list and from the definition of nested, is that a node can be nested only in its previous node (in the list) or in the father of the previous node, or in the father of the father and so on.
 
+Algorithm~\ref{tree} represents the pseudocode for the creation of the pragma tree.
+
+\begin{algorithm}[H]
+\begin{algorithmic}
+%\State \begin{bf}Data\end{bf}: 
+\Function{create\_tree}{pragma list L}
+\For{pragma \begin{bf}in\end{bf} L }
+\State Function f = \Call{get\_function}{pragma}; \Comment{Returns the function where the pragma is defined.}
+\State Node n = \Call{create\_node}{pragma, f}; \Comment{Exctract all the information from the AST node and save them in a custom class.}
+\If {f is the same function of the pragma exctracted before}
+\State Tree.\Call{insert\_node}{n};
+\Else
+\State Create a new Tree associated with f and set it as the current tree.
+\State Tree.root = n;
+\EndIf
+\EndFor
+\EndFunction
+\\
+\Function{Tree::insert\_node}{Node n}
+\State Node last\_node = Tree.last\_node;
+\While {last\_node != NULL}
+\If {\Call{check\_annidation}{n, last\_node}}
+\State last\_node.\Call{add\_child\_node}{n};
+\State n.parent\_node = last\_node;
+\State \Return
+\Else
+\State last\_node = last\_node.parent\_node;
+\EndIf
+\EndWhile
+\State Tree.root.\Call{add\_child\_node}{n};
+\State n.parent\_node = NULL;
+\EndFunction
+\end{algorithmic}
+\caption{Pseudocode of the algorithm used to create the pragma tree.}
+\label{tree}
+\end{algorithm}
+
 During the creation of the trees each AST node is transformed in a custom object that will contain only the information useful for the framework: 
 
 \begin{itemize}
@@ -747,8 +787,12 @@ Each thread executes an infinite loop; at the beginning of each iteration the th
 
 \chapter{Implementation}
 \section{Scheduling XML schema}
-\section{Instrumentation for Profiling}
 \section{Profiling implementation}
+\subsection{Instrumentation}
+
+\subsection{Run-time}
+
+\section{Profiling execution}
 \section{Schedule generating tool}
 \section{Instrumentation for the execution}
 \section{Run-time support}

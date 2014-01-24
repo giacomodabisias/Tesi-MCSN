@@ -1,6 +1,7 @@
 \documentclass[a4paper,11pt,oneside]{book}
 \usepackage{latexsym}
 \usepackage{braket}
+\usepackage{graphicx}
 \usepackage{amsfonts}
 \usepackage{amsmath}
 \usepackage{verbatim}
@@ -9,11 +10,19 @@
 \usepackage{graphicx}
 \usepackage[english]{babel}
 \usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{float}
+\usepackage{geometry}
+
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 
 %%%%%%%%%%%%%
 \usepackage{color}
 \usepackage[colorlinks]{hyperref}
 \hypersetup{urlcolor=darkblue}
+
 
 
 \usepackage{listings}
@@ -249,6 +258,49 @@ A real-time program, to be scheduled, needs to provide some informations about i
 The thesis’s framework parses the source code customizing the \emph{RecursiveASTVisitor} interface; in particular it overrides two methods: \emph{VisitFunctionDecl()} and \emph{VisitStmt}. Each time the parser comes up with a \emph{FunctionDecl} object or a \emph{Stmt} object it invokes the associated custom function \emph{VisitFunctionDecl()} adds all objects representing a function definition to a \emph{FIFO} list.  At the end of the parsing this list will contain the definition of all the functions in the input source code. \emph{VisitStmt()} instead triggers on each stmt, it checks the type and if it is an \emph{OMPExecutableDirective} node it adds it to another \emph{FIFO} list, that at the end will contain all the pragmas. The two lists have the property that the order of their elements is given by the positions of the nodes in the source code, the smaller the starting line of a node the smaller its position in the list. This property is granted by the fact that the input code is parsed top down.
 
 Once all the pragmas are in the list, the tool inspects each node, extracting information and saving them in a custom class. The newly created objects are used to build a pragmas tree. Since an input code can have multiple functions containing OpenMP pragmas and at static time it is not possible to understand where and when these functions will be called, the framework builds different pragmas tree for each function containing pragmas. It is possible to know, for each function, at which line its body starts and ends and so it is possible to match each pragma to the correct function. The tree structure is given by the nested architecture of the OpenMP pragmas, that has been described in chapter~\ref{openmp}. The built of the tree is quite simple and straightforward as there are several properties that come to handy. The extracted pragmas in the list are ordered according to their starting line, so pragmas belonging to the same function are continuous. Every time a pragma is popped from the list, its starting line is checked, if it belongs to the same function of the previous node it is added to the current tree, otherwise it will be the root of a new tree. Another property is that a pragma is a child of another pragma, only if it is nested inside it; to be nested a node must have its starting line greater and its ending line smaller than the other one.  The last property, that still comes from the ordered pragma list and from the definition of nested, is that a node can be nested only in its previous node (in the list) or in the father of the previous node, or in the father of the father and so on.
+
+
+Algorithm~\ref{tree} represents the pseudocode for the creation of the pragma tree.
+
+\begin{algorithm}[H]
+\begin{algorithmic}
+%\State \begin{bf}Data\end{bf}: 
+\Function{create\_tree}{pragma list L}
+\For{pragma \begin{bf}in\end{bf} L }
+\State Function f = \Call{get\_function}{pragma}; \Comment{Returns the function where the pragma is defined.}
+\State Node n = \Call{create\_node}{pragma, f}; \Comment{Exctract all the information from the AST node and save them in a custom class.}
+\If {f is the same function of the pragma exctracted before}
+\State Tree.\Call{insert\_node}{n};
+\Else
+\State Create a new Tree associated with f and set it as the current tree.
+\State Tree.root = n;
+\EndIf
+\EndFor
+\EndFunction
+\\
+\Function{Tree::insert\_node}{Node n}
+\State Node last\_node = Tree.last\_node;
+\While {last\_node != NULL}
+\If {\Call{check\_annidation}{n, last\_node}}
+\State last\_node.\Call{add\_child\_node}{n};
+\State n.parent\_node = last\_node;
+\State \Return
+\Else
+\State last\_node = last\_node.parent\_node;
+\EndIf
+\EndWhile
+\State Tree.root.\Call{add\_child\_node}{n};
+\State n.parent\_node = NULL;
+\EndFunction
+
+\end{algorithmic}
+\caption{Pseudocode of the algorithm used to create the pragma tree.}
+\label{tree}
+\end{algorithm}
+
+
+
+
 
 During the creation of the trees each AST node is transformed in a custom object that will carry only the information useful for the framework. 
 
