@@ -1,238 +1,104 @@
 <Schedule>
   <Cores>4</Cores>
   <Pragma>
-    <id>26</id>
+    <id>12</id>
     <Caller_id>0</Caller_id>
     <Type>main</Type>
     <Threads>
       <Thread>0</Thread>
     </Threads>
     <Start_time>0</Start_time>
-    <Deadline>38.9585</Deadline>
+    <Deadline>22.0</Deadline>
     <Barrier>
-      <id>43</id>
+      <id>15</id>
     </Barrier>
   </Pragma>
   <Pragma>
-    <id>43</id>
-    <Caller_id>26</Caller_id>
+    <id>15</id>
+    <Caller_id>12</Caller_id>
     <Type>OMPParallelDirective</Type>
     <Threads>
       <Thread>0</Thread>
     </Threads>
     <Start_time>0</Start_time>
-    <Deadline>38.9585</Deadline>
+    <Deadline>22.0</Deadline>
     <Barrier>
-      <id>43</id>
-      <id>45</id>
+      <id>15</id>
+      <id>17</id>
     </Barrier>
   </Pragma>
   <Pragma>
-    <id>45</id>
-    <Caller_id>43</Caller_id>
+    <id>17</id>
+    <Caller_id>15</Caller_id>
     <Type>OMPSectionsDirective</Type>
     <Threads>
       <Thread>0</Thread>
     </Threads>
     <Start_time>0</Start_time>
-    <Deadline>38.9585</Deadline>
+    <Deadline>22.0</Deadline>
     <Barrier>
-      <id>47</id>
-      <id>70</id>
+      <id>19</id>
+      <id>25</id>
     </Barrier>
   </Pragma>
   <Pragma>
-    <id>47</id>
-    <Caller_id>45</Caller_id>
+    <id>19</id>
+    <Caller_id>17</Caller_id>
     <Type>OMPSectionDirective</Type>
     <Threads>
       <Thread>0</Thread>
     </Threads>
     <Start_time>0</Start_time>
-    <Deadline>39.2285</Deadline>
+    <Deadline>22.0</Deadline>
   </Pragma>
   <Pragma>
-    <id>112</id>
-    <Caller_id>47</Caller_id>
-    <Type>sx</Type>
+    <id>3</id>
+    <Caller_id>19</Caller_id>
+    <Type>work</Type>
     <Threads>
       <Thread>0</Thread>
     </Threads>
     <Start_time>0</Start_time>
-    <Deadline>39.2285</Deadline>
+    <Deadline>22.0</Deadline>
     <Barrier>
-      <id>115</id>
+      <id>5</id>
     </Barrier>
   </Pragma>
   <Pragma>
-    <id>115</id>
-    <Caller_id>112</Caller_id>
+    <id>5</id>
+    <Caller_id>3</Caller_id>
     <Type>OMPParallelForDirective</Type>
     <Threads>
-      <Thread>0</Thread>
+      <Thread>2</Thread>
+      <Thread>3</Thread>
     </Threads>
     <Start_time>0</Start_time>
-    <Deadline>39.2295</Deadline>
+    <Deadline>30.0</Deadline>
     <Barrier>
-      <id>115</id>
+      <id>5</id>
     </Barrier>
   </Pragma>
   <Pragma>
-    <id>203</id>
-    <Caller_id>115</Caller_id>
-    <Type>detectAndDraw_sx</Type>
-    <Threads>
-      <Thread>0</Thread>
-    </Threads>
-    <Start_time>0</Start_time>
-    <Deadline>39.23625</Deadline>
-    <Barrier>
-      <id>227</id>
-    </Barrier>
-  </Pragma>
-  <Pragma>
-    <id>227</id>
-    <Caller_id>203</Caller_id>
-    <Type>OMPParallelDirective</Type>
-    <Threads>
-      <Thread>0</Thread>
-    </Threads>
-    <Start_time>0</Start_time>
-    <Deadline>39.23625</Deadline>
-    <Barrier>
-      <id>227</id>
-      <id>229</id>
-    </Barrier>
-  </Pragma>
-  <Pragma>
-    <id>229</id>
-    <Caller_id>227</Caller_id>
-    <Type>OMPSectionsDirective</Type>
-    <Threads>
-      <Thread>0</Thread>
-    </Threads>
-    <Start_time>0</Start_time>
-    <Deadline>39.2365</Deadline>
-    <Barrier>
-      <id>231</id>
-      <id>240</id>
-    </Barrier>
-  </Pragma>
-  <Pragma>
-    <id>231</id>
-    <Caller_id>229</Caller_id>
+    <id>25</id>
+    <Caller_id>17</Caller_id>
     <Type>OMPSectionDirective</Type>
     <Threads>
       <Thread>1</Thread>
     </Threads>
-    <Start_time>39.2365</Start_time>
-    <Deadline>40.0</Deadline>
+    <Start_time>22.0</Start_time>
+    <Deadline>22.0</Deadline>
   </Pragma>
   <Pragma>
-    <id>240</id>
-    <Caller_id>229</Caller_id>
-    <Type>OMPSectionDirective</Type>
+    <id>3</id>
+    <Caller_id>25</Caller_id>
+    <Type>work</Type>
     <Threads>
       <Thread>2</Thread>
     </Threads>
-    <Start_time>39.2365</Start_time>
-    <Deadline>40.0</Deadline>
-  </Pragma>
-  <Pragma>
-    <id>70</id>
-    <Caller_id>45</Caller_id>
-    <Type>OMPSectionDirective</Type>
-    <Threads>
-      <Thread>1</Thread>
-    </Threads>
-    <Start_time>38.9585</Start_time>
-    <Deadline>39.233</Deadline>
-  </Pragma>
-  <Pragma>
-    <id>98</id>
-    <Caller_id>70</Caller_id>
-    <Type>dx</Type>
-    <Threads>
-      <Thread>0</Thread>
-    </Threads>
-    <Start_time>39.233</Start_time>
-    <Deadline>39.233</Deadline>
+    <Start_time>22.0</Start_time>
+    <Deadline>22.0</Deadline>
     <Barrier>
-      <id>101</id>
+      <id>5</id>
     </Barrier>
-  </Pragma>
-  <Pragma>
-    <id>101</id>
-    <Caller_id>98</Caller_id>
-    <Type>OMPParallelForDirective</Type>
-    <Threads>
-      <Thread>1</Thread>
-    </Threads>
-    <Start_time>39.233</Start_time>
-    <Deadline>39.234</Deadline>
-    <Barrier>
-      <id>101</id>
-    </Barrier>
-  </Pragma>
-  <Pragma>
-    <id>125</id>
-    <Caller_id>101</Caller_id>
-    <Type>detectAndDraw_dx</Type>
-    <Threads>
-      <Thread>1</Thread>
-    </Threads>
-    <Start_time>39.233</Start_time>
-    <Deadline>39.24275</Deadline>
-    <Barrier>
-      <id>150</id>
-    </Barrier>
-  </Pragma>
-  <Pragma>
-    <id>150</id>
-    <Caller_id>125</Caller_id>
-    <Type>OMPParallelDirective</Type>
-    <Threads>
-      <Thread>0</Thread>
-    </Threads>
-    <Start_time>39.24275</Start_time>
-    <Deadline>39.24275</Deadline>
-    <Barrier>
-      <id>150</id>
-      <id>152</id>
-    </Barrier>
-  </Pragma>
-  <Pragma>
-    <id>152</id>
-    <Caller_id>150</Caller_id>
-    <Type>OMPSectionsDirective</Type>
-    <Threads>
-      <Thread>0</Thread>
-    </Threads>
-    <Start_time>39.24275</Start_time>
-    <Deadline>39.243</Deadline>
-    <Barrier>
-      <id>154</id>
-      <id>163</id>
-    </Barrier>
-  </Pragma>
-  <Pragma>
-    <id>154</id>
-    <Caller_id>152</Caller_id>
-    <Type>OMPSectionDirective</Type>
-    <Threads>
-      <Thread>0</Thread>
-    </Threads>
-    <Start_time>39.24275</Start_time>
-    <Deadline>40.0</Deadline>
-  </Pragma>
-  <Pragma>
-    <id>163</id>
-    <Caller_id>152</Caller_id>
-    <Type>OMPSectionDirective</Type>
-    <Threads>
-      <Thread>3</Thread>
-    </Threads>
-    <Start_time>39.243</Start_time>
-    <Deadline>40.0</Deadline>
   </Pragma>
 </Schedule>
