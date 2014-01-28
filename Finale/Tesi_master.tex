@@ -741,6 +741,7 @@ If $\tau_j \notin F_k$, we cannot assume that $\tau_j$ will be allocated on the 
 The algorithm checks then that all the deadlines and arrival times are consistent and in case produces the scheduling schema.
 
 \section{Instrumentation for the execution}
+\label{designexecution}
 
 This paragraph will present the design strategies that have been used to instrument the input code to make it run accordingly to the schedule produced by the framework. 
 
@@ -844,8 +845,138 @@ When the If completes the \emph{ProfileTrack} object is destroyed and its destru
 
 \section{Profiling execution}
 \section{Schedule generating tool}
-\section{Instrumentation for the execution}
-\section{Run-time support}
+\section{Final Execution}
+\subsection{Instrumentation}
+This paragraph will describe in details how the code is actually transformed accordingly to what was described in paragraph~\ref{designexecution}.
+
+This phase deals only with pragmas and does not treat functions; if a pragma calls a function it will be considered as part of the pragma and it will be execute atomically on the same thread. Of course if this function contains pragmas, these will be transformed in tasks and allocated as stated in the schedule.
+
+Code~\ref{simpleinstrumentation} shows how the pragma \emph{section} at line 19 of Code~\ref{code} has been transformed into a task.
+
+\begin{lstlisting}[language=CCC, caption=Example of an instrumented \emph{section} pragma from Code~\ref{code}., label=simpleinstrumentation]
+ //#pragma omp section
+{
+    class Nested : public NestedBase {
+    public: 
+        virtual shared_ptr<NestedBase> clone() const { 
+          return make_shared<Nested>(*this); 
+        } 
+        Nested(int pragma_id, int & bar) : 
+            NestedBase(pragma_id), bar_(bar) {}
+        int & bar_;
+            
+        void fx(int & bar){   
+            //do stuff (bar)
+            work(bar);
+            launch_todo_job(); 
+        }
+        void callme() {
+            fx(bar_);
+        }
+    };
+    shared_ptr<NestedBase> nested_b = make_shared<Nested>(19, bar);                             
+    if(ThreadPool::getInstance()->call(nested_b)) 
+        todo_job_.push(nested_b); 
+}
+\end{lstlisting}
+
+All the pragma’s code is wrapped in the \emph{fx()} function which belongs to the \emph{Nested} class, that is defined inside the pragma’s scope. The class \emph{Nested} has as parameter \emph{bar\_} which is the variable used inside the pragma block; in general each variable, of any kind, that is used inside the pragma block, but declared outside, is transformed into a class’ variable. This is fundamental because when the object will be delivered to the designated thread, it won’t know variables declared outside \emph{Nested}. All the variables used inside a pragma node are stored in the AST and so it is quite easy to retrieve them. The \emph{OMPExecutableDirective} has the reference to an associated statement of type \emph{CapturedStmt} which has the reference to the \emph{CompoundStmt} or \emph{ForStmt} containing the code of the pragma plus a reference to the list of all the \emph{VarDecl} objects representing variables used inside the pragma. The \emph{clone} function is necessary for the instrumentation of \emph{for} pragmas and will be described later.
+
+What does it happen when Code~\ref{simpleinstrumentation} is executed? When the program enters the scope it jumps the class declaration and goes straight to line 23. Here the \emph{Nested} object, corresponding to the pragma \emph{section}, is instantiated: its constructor receives the pragma’s line number which is the global identifier of the task and all the parameters that are used inside the pragma code, in this case only the variable \emph{bar}. The constructor initializes its parameters, that will be later used by \emph{fx} and calls the costructor of its super class (\emph{NestedBase}) passing to it the pragma identifier.  \emph{NestedBase} is a virtual class declared inside the run-time support which is father of all the classes declared inside the instrumented code and it will described in the following paragraph. Once the \emph{nested\_b} object is created it is passed to the run-time in the following line. There are other two lines of code that have not been explained: \emph{launch\_todo\_job()} and \emph{todo\_job\_.push(nested\_b)}. These two function calls are necessary to avoid problems during the execution of nested task and will be explained in the paragraph about the run-time support.
+
+Code~\ref{simpleinstrumentation} shows how are instrumented \emph{section} pragmas, but that method is equal also for \emph{task}, \emph{sections}, \emph{parallel}, \dots pragmas, but it is not correct for the \emph{for} task. Code~\ref{for} shows how \emph{for} pragma are instrumented.
+
+\begin{lstlisting}[language=CCC, caption=Example of an instrumented \emph{for} pragma from Code~\ref{code}., label=for]
+{
+  class Nested : public NestedBase {
+  public: 
+    virtual shared_ptr<NestedBase> clone() const { 
+      return make_shared<Nested>(*this);
+    } 
+    Nested(int pragma_id, int & bar) : 
+        NestedBase(pragma_id), bar_(bar) {}
+    int & bar_;
+
+    void fx(ForParameter for_param, int & bar) {
+      for(int i = 0 + for_param.thread_id_*(bar - 0)/for_param.num_threads_; 
+          i < 0 + (for_param.thread_id_ + 1)*(bar - 0)/for_param.num_threads_; 
+          i ++ )
+      {
+        //do stuff
+      }  
+      launch_todo_job(); 
+    }
+    void callme(ForParameter for_param) {
+      fx(for_param, bar_);
+    }
+  };
+  shared_ptr<NestedBase> nested_b = make_shared<Nested>(5, bar);
+  if(ThreadPool::getInstance()->call(nested_b)) 
+    nested_b->callme(ForParameter(0,1));
+}
+\end{lstlisting}
+
+In case of a \emph{for} pragma the instrumentation becomes a little bit more complicated, but what was true for Code~\ref{simpleinstrumentation} still holds. First of all it is possible to notice that the For declaration has been changed according to what stated in paragraph~\ref{designexecution} and that function \emph{fx()} receives an additional parameter \emph{ForParameter for\_param}. The new parameter is created and passed to the function directly by the run-time and it is used to specify to each thread which iterations of the For it has to execute. The \emph{clone()} function, as the name suggests, is used to create copies of the \emph{Nested} object; this is necessary because, when a For is split among different threads, each one needs the object. Threads can’t share the same object since it is most likely that they will execute concurrently, invoking the same function from the same object, creating a race condition. 
+
+The structure of the pragmas in the original source code, as explained in paragraph~\ref{designexecution}, is not modified during the instrumentation and this implies that nested pragmas are translated in to nested tasks. The consequence of this fact is simply that the outermost tasks, of type \emph{parallel}, are instantiated by the main thread, while the other are allocated and passed to the run-time by the task containing them. The overhead to allocate the \emph{Nested} object and to pass it to the run-time is very small, but in any case this approach allows to split this overhead among the threads improving the overall performance. Code~\ref{annidation} shows a piece of the code generated instrumenting Code~\ref{code} and it is possible to see the nested structure of the tasks.
+
+\begin{lstlisting}[language=CCC, caption=Example of tasks annidation from Code~\ref{code}., label=annidation]
+int main(int argc, char* argv[]) {
+  int bar;
+  //#pragma omp parallel private(bar)
+  {
+    class Nested : public NestedBase {
+    public: 
+      virtual shared_ptr<NestedBase> clone() const { 
+        return make_shared<Nested>(*this); 
+      } 
+      Nested(int pragma_id, int bar) : 
+          NestedBase(pragma_id), bar_(bar) {}
+      int bar_;
+  
+      void fx(ForParameter for_param, int bar){
+        //#pragma omp sections
+        {
+          class Nested : public NestedBase {
+          public: 
+            virtual shared_ptr<NestedBase> clone() const { 
+              return make_shared<Nested>(*this); 
+            } 
+            Nested(int pragma_id, int & bar) : 
+                NestedBase(pragma_id), bar_(bar) {}
+            int & bar_;
+            
+            void fx(ForParameter for_param, int & bar){
+              //#pragma omp section
+              {
+                class Nested : public NestedBase {
+  ...
+  ...
+\end{lstlisting}
+
+
+To complete this paragraph there is only to explain how are annotated \emph{barrier}s pragma; an instrumented \emph{barrier} is shown in Code~\ref{barrier}.
+
+\begin{lstlisting}[language=CCC, caption=Example of \emph{barrier} instrumentation., label=barrier]
+{
+    class Nested : public NestedBase {
+    public:
+        virtual shared_ptr<NestedBase> clone() const { 
+          return make_shared<Nested>(*this); 
+        } 
+        Nested(int pragma_id) : NestedBase(pragma_id) {}
+        void callme(){}
+    };
+    ThreadPool::getInstance()->call(make_shared<Nested>(pragma_line));
+}
+\end{lstlisting}
+
+
+In OpenMP a \emph{barrier} pragma is used to notifies the run-time that some threads need to synchronize on some tasks and it doesn’t execute any code, so the function \emph{callme()} is simply empty and there is no need for \emph{fx()}. During the execution of the final instrumented code, when the \emph{barrier} is encountered the program instantiate the \emph{Nested} object, passing to it the line number of the pragma and then it passes the object to the run-time. The run-time, when receives the object, consults the schedule, it discovers that it is of type \emph{barrier} and insert, where needed, synchronization points. 
+
+
+
+\subsection{Run-time support}
 
 \chapter{Performance evaluation}
 \section{A computer vision application}
