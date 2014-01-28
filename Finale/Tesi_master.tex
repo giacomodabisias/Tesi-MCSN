@@ -788,6 +788,122 @@ Each thread executes an infinite loop; at the beginning of each iteration the th
 
 \chapter{Implementation}
 \section{Scheduling XML schema}
+
+The schedule schema is produced by the scheduling algorithm only if a feasible solution is found; in this case an XML file is produced containing all the relevant informations for each task, which can be either a function node ora a pragma node. Each node contains the following fields:
+\begin{itemize}
+\item{\emph{id} : represents the starting line of the task; note that this is not a unique identifier.}
+\item{\emph{caller\_id} : contains the caller task (pragma or function); the couple (\emph{id}, \emph{caller\_id}) represents a unique identifier.}
+\item{\emph{Type} : represents the type of the pragma or the function name. }
+\item{\emph{Threads}/\emph{Thread} : contains a list of integer values representing the number of the core on which to schedule the task. The list will contain only one element for alla pragmas, except in case of a \emph{$\#$omp parallel for} and \emph{$\#$omp for} which are splitted.}
+\item{\emph{Start\_time} : contains the start time calculated by the Chetto\&Chetto algorithm.}
+\item{\emph{Deadline} : represents the daedline for the tasks execution.}
+\item{\emph{Barrier}/\emph{id} : contains a list of task ids which identifies the tasks that have to synchronize after terminating the tasks execution.}
+\end{itemize}
+Part of the XML produced for the example \ref{code} is shown  in \ref{schedule}
+
+\lstset{language=XML}
+\begin{lstlisting}[caption=Schedule XML, label=schedule]
+<Schedule>
+  <Cores>4</Cores>
+  <Pragma>
+    <id>12</id>
+    <Caller_id>0</Caller_id>
+    <Type>main</Type>
+    <Threads>
+      <Thread>0</Thread>
+    </Threads>
+    <Start_time>0</Start_time>
+    <Deadline>22.0</Deadline>
+    <Barrier>
+      <id>15</id>
+    </Barrier>
+  </Pragma>
+  <Pragma>
+    <id>15</id>
+    <Caller_id>12</Caller_id>
+    <Type>OMPParallelDirective</Type>
+    <Threads>
+      <Thread>0</Thread>
+    </Threads>
+    <Start_time>0</Start_time>
+    <Deadline>22.0</Deadline>
+    <Barrier>
+      <id>15</id>
+      <id>17</id>
+    </Barrier>
+  </Pragma>
+...
+<Pragma>
+    <id>5</id>
+    <Caller_id>3</Caller_id>
+    <Type>OMPParallelForDirective</Type>
+    <Threads>
+      <Thread>2</Thread>
+      <Thread>3</Thread>
+    </Threads>
+    <Start_time>27.0</Start_time>
+    <Deadline>30.0</Deadline>
+    <Barrier>
+      <id>5</id>
+    </Barrier>
+  </Pragma>
+...
+
+\end{lstlisting}
+
+\section{Graph creation}
+
+After the profiling step the different types of gaphs described in \ref{a}. To create the main graph, the \emph{flow graph}, which represents the execution flow of the program, the following pseudo code has been implemented:
+
+\begin{algorithm}[H]
+\begin{algorithmic}
+\State \begin{bf}Data\end{bf}: pragma\_xml = list of pragmas, profile\_xml = profile log
+\Function{getParalGraph}{ pragma\_xml, profile\_xml}
+\State \begin{bf}do\end{bf}: create map with the profile informations
+\State \begin{bf}do\end{bf}: g\_list = new list of graphs
+\For{f  \begin{bf}in\end{bf} pragma\_xml.functions }
+\State g\_list.append(f)  \Comment{create a new graph and add it to graph list}
+\State \Call{scan}{f, pragma\_xml} \Comment{starts the creation of the graph}
+\EndFor
+\State return (g\_list, visual\_g\_list) \Comment{returns the object  and the visual graph}
+\EndFunction
+\end{algorithmic}
+
+\begin{algorithmic}
+\Function{scan}{pragma\_xml, profile\_xml, \dots}
+\For{p  \begin{bf}in\end{bf} pragma\_xml.pragmas }
+\State p.\Call{add\_info}{profile\_xml}
+\State add p to the object graph
+\State g\_obj = New g\_node(p) \Comment creates a new graphical node
+\If {p.children != Null}
+\State barrier = \Call{create\_diamond}{pragma\_xml, profile\_xml, p, g\_obj, \dots}
+\State p.\Call{add\_barrier}{b}
+\EndIf
+\EndFor
+\EndFunction
+\end{algorithmic}
+
+\begin{algorithmic}
+\Function{create\_diamond}{pragma\_xml, profile\_xml, p,  g\_obj, \dots}
+\For{k  \begin{bf}in\end{bf} p.pragmas }
+\State k.\Call{add\_info}{profile\_xml}
+\State Add k to the graph
+\State g\_obj = New g\_node(k) \Comment creates a new graphical node
+\If {k.children != Null}
+\State b = \Call{create\_diamond}{pragma\_xml, profile\_xml, k, \dots}
+\State k.\Call{add\_barrier}{b}
+\Else 
+\State b = New barrier
+\State k.\Call{add\_barrier}{b}
+\EndIf
+\EndFor
+\State return b
+\EndFunction
+
+\end{algorithmic}
+\end{algorithm}
+
+\emph{getParalGraph()} creates a list of graphs, one for each function encountered in the pragma XML file created in \ref{f}; the \emph{scan()} function is called for each found function which will create and add all the pragma nodes encountered. All the informations found in the profile log, created in \ref{p} ,will be added to the node. The \emph{scan()} function has to call a special function, \emph{create\_diamond()}, when a pragma node whith nested nodes is encoutnered. This is due to the fact that special barrier nodes have to be added to maintain the OpeMP semantic. \emph{create\_diamond()} is a recursive function since there could be other pragma nodes nested inside nested pragma nodes. Each function creates not only the object graph, but also the graphical one using the \emph{pydot} library, a Python interface to the \emph{Graphviz dot} language. To visualize the graphical graphs \emph{Zgrviewer} can be used, a graph visualizer implemented in Java and based upon the \emph{Zoomable Visual Transformation Machine} \ref{a}.
 \section{Profiling implementation}
 This chapter will show the structure and the implementation of the instrumented code and of the run-time support for the profiling phase.
 
@@ -844,7 +960,163 @@ When the If completes the \emph{ProfileTrack} object is destroyed and its destru
 
 
 \section{Profiling execution}
+
+To create the profiling log, containing all the statistics on the execution, the following pseudo-code has been implemented in Python:
+
+\begin{algorithm}[H]
+\begin{algorithmic}
+ \State \begin{bf}Data\end{bf}:{ N = number of interations}
+\State \begin{bf}do\end{bf}: Create map for containing the execution data
+\For{i  \begin{bf}in\end{bf} N }
+\State launch executable and create log\_file
+\For{pragma  \begin{bf}in\end{bf} log\_file }
+\State insert data in map
+\EndFor
+\For{function  \begin{bf}in\end{bf} log\_file }
+\State insert data in map
+\EndFor
+\EndFor
+\State calculate statistics using map\;
+\For{value  \begin{bf}in\end{bf} map }
+\State write to XML profile\_log
+\EndFor
+\State return profile\_log
+\end{algorithmic}
+\end{algorithm}
+
+The algorithm starts by reading from input the number of iteration to execute, $N$; after that it launces the executable $N$ times using as arguments the data contained in a parameter.txt file. After each execution, the algorithm, reads the produced log\_file and inserts the pragma/function data in a hash table, summing the execution times. After that the $N$ executions statistics are calculated using the \emph{Numpy} Python package and inserted in the hash table. The contained data is then used to construct a XML tree using the \emph{cElementTree} module. The so created XML tree is saved as a new profile log called "executable\_name"\_profile.xml. The structure of such file is represented in \ref{log}. The last step consists in inserting the statistics in the \emph{flow graph} produced in \ref{a}.
+
+
+
 \section{Schedule generating tool}
+
+As described in \ref{a}, two versions of the scheduling algorithm have been developed: a sequential version and a parallel version. The main difference between this two algorithms consists in how the results are returned to the caller function. This is due to the fact that in \emph{Python}, even if more threads are created, there is only a single interpreter, so all the threads execution is serialized; to avoid this problem the tool creates different processes, each with its own \emph{Python} interpreter. In the sequential version, since the algorithm is working on shared memory, the empty result can passed directly by the caller to the function, which can then modify it. The parallel version uses instead queues implemented in the multiprocessing module, which provide an easy API to communicate between procesess, based on send and recive operations. 
+
+\begin{algorithm}[H]
+\begin{algorithmic}
+\Function{get\_optimal\_flow\_single}{flow\_list, task\_list, level, optimal\_flow, NUM\_TASKS, MAX\_FLOWS, execution\_time}
+\If {time.clock() $<$ execution\_time}
+\State curopt = get\_cost(optimal\_flow)
+\State cur = get\_cost(flow\_list)
+\If {len(flow\_list) $<$ MAX\_FLOWS and len(task\_list) != level and cur $\leq$ curopt}
+\State task\_i = task\_list[level]
+\For{flow in flow\_list}
+\State flow.add\_task(task\_i)
+\State \Call{get\_optimal\_flow\_single}{\dots, level + 1, \dots}
+\State flow.remove\_task(task\_i)
+\EndFor
+\State new\_flow = new Flow()
+\State new\_flow.add\_task(task\_i)
+\State flow\_list.append(new\_flow)
+\State \Call{get\_optimal\_flow\_single}{\dots, level + 1, \dots}
+\State flow\_list.remove(new\_flow)
+\If{ task\_i is of type 'For'}
+\For{i $\in$ MAX\_FLOWS}
+\For{j $\in$ i}
+\State task = new For\_Node(task\_i)
+\State task\_list.append(task)
+\EndFor
+\State \Call{get\_optimal\_flow\_single}{\dots, level + 1, \dots, NUM\_TASKS + i - 1, \dots}
+\EndFor
+\EndIf
+\Else
+\If{len(task\_list) == level and len(flow\_list) $\leq$ MAX\_FLOWS and cur $\leq$ curopt}
+\State update optimal\_flow
+\EndIf
+\EndIf
+\EndIf
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+\begin{algorithm}[H]
+\begin{algorithmic}
+\Function{get\_optimal\_flow}{flow\_list, task\_list, level, optimal\_flow, NUM\_TASKS, MAX\_FLOWS, execution\_time, queue}
+\If {time.clock() $<$ execution\_time}
+\State curopt = get\_cost(optimal\_flow)
+\State cur = get\_cost(flow\_list)
+\If {len(flow\_list) $<$ MAX\_FLOWS and len(task\_list) != level and cur $\leq$ curopt}
+\State task\_i = task\_list[level]
+\For{flow in flow\_list}
+\State flow.add\_task(task\_i)
+\State \Call{get\_optimal\_flow}{\dots, level + 1, \dots}
+\State flow.remove\_task(task\_i)
+\EndFor
+\State new\_flow = new Flow()
+\State new\_flow.add\_task(task\_i)
+\State flow\_list.append(new\_flow)
+\State \Call{get\_optimal\_flow\_single}{\dots, level + 1, \dots}
+\State flow\_list.remove(new\_flow)
+\If{ task\_i is of type 'For'}
+\For{i $\in$ MAX\_FLOWS}
+\For{j $\in$ i}
+\State task = new For\_Node(task\_i)
+\State task\_list.append(task)
+\EndFor
+\State \Call{get\_optimal\_flow}{\dots, level + 1, \dots, NUM\_TASKS + i - 1, \dots}
+\EndFor
+\EndIf
+\Else
+\If{len(task\_list) == level and len(flow\_list) $\leq$ MAX\_FLOWS and cur $\leq$ curopt}
+\State empty queue
+\State update optimal\_flow
+\State queue.add(optimal\_flow)
+\EndIf
+\EndIf
+\EndIf
+\EndFunction
+
+\end{algorithmic}
+\end{algorithm}
+
+When the main program wants to call the parallel scheduler, it creates a task input sequence by randomizing the task\_list and  creates a new process passing to it a reference to the parallel scheduler call along with the requested arguments. All the procesess are then started and the main program remains in a wait state attending the result from the shared queues; after receiving the results, all the processes are joined and the best solution of all the executions is choosen.
+
+After finding the best schedule, it is necessary to check if it is feasible using the modified version of the Chetto\&Chetto algorithm.
+
+\begin{algorithm}[H]
+\begin{algorithmic}
+\Function{chetto}{flow\_graph, deadline, optimal\_flow}
+\State node = get\_last(flow\_graph)
+\State node.deadline = deadline
+\State \Call{chetto\_deadlines}{node}
+\State node = get\_first(flow\_graph)
+\State \Call{chetto\_arrival}{node, optimal\_flow}
+\EndFunction
+
+\end{algorithmic}
+
+\begin{algorithmic}
+\Function{chetto\_deadlines}{node}
+\If{node.parent != Null}
+\For{p $\in$ node.parent}
+\State p.deadline = \Call{get\_min}{p} 
+\EndFor
+\For{p $\in$ node.parent}
+\State \Call{chetto\_deadlines}{p}
+\EndFor
+\EndIf
+\EndFunction
+
+\end{algorithmic}
+
+\begin{algorithmic}
+\Function{chetto\_arrival}{node}
+\If{node.children != Null}
+\For{child $\in$ node.children}
+\If{child.arrival == Null and \Call{all\_set}{child} == True } 
+\State (a,d) = \Call{get\_max}{child, optimal\_flow} 
+\State child.arrival = max(a,d)
+\EndIf
+\State \Call{chetto\_arrival}{child, optimal\_flow}
+\EndFor
+\EndIf
+\EndFunction
+
+\end{algorithmic}
+
+\end{algorithm}
+
+The \emph{get\_min} function just returns the minium deadline set among all the children of a node. The \emph{get\_max} function returns the maximum deadline and arrival time found based on the criterions described in \ref{a}. \emph{all\_set} checks if all arrival times are set in the parents of a node.
+After the \emph{chetto} call the main program checks if all the deadlines and arrival times are positive and in case constructs the scheduling graph taking care of adding all the necessary synchronization barriers; the schedule is sjown in \ref{a}.
 \section{Final Execution}
 \subsection{Instrumentation}
 This paragraph will describe in details how the code is actually transformed accordingly to what was described in paragraph~\ref{designexecution}.
