@@ -872,6 +872,7 @@ After the profiling step, the different types of gaphs described in chap \ref{pa
 \State return (g\_list, visual\_g\_list) \Comment{returns the object  and the visual graph}
 \EndFunction
 \end{algorithmic}
+\caption{Pseudocode of the algorithm which produces the object and visual graphs}
 
 \begin{algorithmic}
 \Function{scan}{pragma\_xml, profile\_xml, \dots}
@@ -989,6 +990,7 @@ To create the profiling log, containing all the statistics on the execution, the
 \EndFor
 \State return profile\_log
 \end{algorithmic}
+\caption{Pseudocode of the algorithm which produces the mean profiling log file}
 \end{algorithm}
 
 The algorithm starts by reading from input the number of iteration to execute, $N$; after that it launces the executable $N$ times using as arguments the data contained in a parameter.txt file. After each execution, the algorithm, reads the produced log\_file and inserts the pragma/function data in a hash table, summing the execution times. After that the $N$ executions statistics are calculated, using the \emph{Numpy} Python package, and inserted in the hash table. The contained data is then used to construct a XML tree using the \emph{cElementTree} module. The so created XML tree is saved as a new profile log called "executable\_name"\_profile.xml. The structure of such file is represented in code \ref{meanlog}. The last step consists in inserting the statistics in the \emph{flow graph} produced in \ref{graph}.
@@ -1034,6 +1036,7 @@ As described in chap \ref{schedulegeneration}, two versions of the scheduling al
 \EndIf
 \EndFunction
 \end{algorithmic}
+\caption{Pseudocode of the sequential algorithm which produces the schedule }
 \end{algorithm}
 \begin{algorithm}[H]
 \begin{algorithmic}
@@ -1073,6 +1076,7 @@ As described in chap \ref{schedulegeneration}, two versions of the scheduling al
 \EndFunction
 
 \end{algorithmic}
+\caption{Pseudocode of the parallel algorithm which produces the schedule }
 \end{algorithm}
 
 When the main program wants to call the parallel scheduler, it creates for each process to be created the following data:
@@ -1128,6 +1132,7 @@ After creting the new final \emph{flow graph} and the schedule, it is necessary 
 \EndFunction
 
 \end{algorithmic}
+\caption{Pseudocode of the modified Chetto\&Chetto algorithm }
 
 \end{algorithm}
 

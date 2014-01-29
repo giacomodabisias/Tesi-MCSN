@@ -872,7 +872,7 @@ After the profiling step, the different types of gaphs described in chap \ref{pa
 \State return (g\_list, visual\_g\_list) \Comment{returns the object  and the visual graph}
 \EndFunction
 \end{algorithmic}
-
+\caption{Pseudocode of the algorithm which produces the object and visual graphs}
 \begin{algorithmic}
 \Function{scan}{pragma\_xml, profile\_xml, \dots}
 \For{p  \begin{bf}in\end{bf} pragma\_xml.pragmas }
@@ -954,6 +954,7 @@ int work(int bar){
 The above code shows that the structure for profiling functions is almost identical to the one for pragmas; the only difference is that the first parameter of \emph{ProfileTrackParams} matches the line number of the function and the second is always zero. What really changes is how the If is inserted in the code because in this case few additional steps are required because a new scope has to be added. In the first step the If declaration is inserted in the line below of the function’s opening curly bracket, so there is to check if the bracket is in the same line of the function or in the line above. Second a closing curly bracket must be added at the end of the function definition to close the If scope.
 
 \subsection{Run-time}
+\label{profilerun}
 
 This paragraph describes the structure of the two run-time classes involved in the execution of the profiled code. One was already shown in the previous paragraph and is \emph{ProfileTrack} and the other is \emph{ProfileTrackerLog}. 
 
@@ -988,6 +989,7 @@ To create the profiling log, containing all the statistics on the execution, the
 \EndFor
 \State return profile\_log
 \end{algorithmic}
+\caption{Pseudocode of the algorithm which produces the mean profiling log file}
 \end{algorithm}
 
 The algorithm starts by reading from input the number of iteration to execute, $N$; after that it launces the executable $N$ times using as arguments the data contained in a parameter.txt file. After each execution, the algorithm, reads the produced log\_file and inserts the pragma/function data in a hash table, summing the execution times. After that the $N$ executions statistics are calculated, using the \emph{Numpy} Python package, and inserted in the hash table. The contained data is then used to construct a XML tree using the \emph{cElementTree} module. The so created XML tree is saved as a new profile log called "executable\_name"\_profile.xml. The structure of such file is represented in code \ref{meanlog}. The last step consists in inserting the statistics in the \emph{flow graph} produced in \ref{graph}.
@@ -1032,6 +1034,7 @@ As described in chap \ref{schedulegeneration}, two versions of the scheduling al
 \EndIf
 \EndFunction
 \end{algorithmic}
+\caption{Pseudocode of the sequential algorithm which produces the schedule }
 \end{algorithm}
 \begin{algorithm}[H]
 \begin{algorithmic}
@@ -1071,6 +1074,7 @@ As described in chap \ref{schedulegeneration}, two versions of the scheduling al
 \EndFunction
 
 \end{algorithmic}
+\caption{Pseudocode of the parallel algorithm which produces the schedule }
 \end{algorithm}
 
 When the main program wants to call the parallel scheduler, it creates for each process to be created the following data:
@@ -1126,7 +1130,7 @@ After creting the new final \emph{flow graph} and the schedule, it is necessary 
 \EndFunction
 
 \end{algorithmic}
-
+\caption{Pseudocode of the modified Chetto\&Chetto algorithm }
 \end{algorithm}
 
 The \emph{get\_min} function just returns the minium deadline which has been set among all the children of a node. The \emph{get\_max} function returns the maximum deadline and arrival time found based on the criterions described in chap \ref{schedulegeneration}. \emph{all\_set} checks if all arrival times are set in the parents of a node.
