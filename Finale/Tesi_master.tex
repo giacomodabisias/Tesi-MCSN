@@ -1350,6 +1350,29 @@ When all the tasks have been executed and the program terminates the \emph{Threa
 \section{Achieved results}
 \section{Future development}
 
+The main future development step consists in the substitution of the pragma directives with new self created pragmas in order to add new functionalities and simplify the framework. It could be possible possible in principle to add informations about deadlines, arrival times, schedule policies, \dots directly inside the directives; a simpler development would consist in adding the remaining OpenMP directives. 
+
+A fundamental step would consist in adding a feature for specifying periodic task structures, which consist of a periodic activation time and deadline, directly in the pragma directives. This is due to the fact that almost all \emph{real-time} programs consist of a majority of periodic task with some \emph{sporadic} tasks. The actual developed tool is already capable of executing periodic tasks, code \ref{periodictask}, by using an infinite for cycle with a timing control sequence nested inside which permits to continue or abort the execution. 
+
+
+\begin{lstlisting}[language=CCC, caption=Example of a periodic task., label=periodictask]
+#pragma omp parallel for
+for(...) {
+	...
+	work(); \\executes the periodictask
+	wait(time); \\waits until the next activation time
+	if(!continue) { \\checks the termination condition
+		break;
+	}
+	...
+}
+
+\end{lstlisting}
+
+The schedule algorithm could also be improved with better heuristics in order to obtain lower computation times for "good" schedule solutions. Another approach would consist in the parallization of the algorithm by taking care of race condition which would occur with the current used data structures.
+
+The profiling step could extract more informations of the working platform to enhance the scheduling sequence and could check automatically different inputs to obtain the best results.
+
 \begin{thebibliography}{9}
 \bibitem{bbw} Giorgio Buttazzo, Enrico Bini, Yifan Wu. \emph{Partitioning parallel applications on multiprocessor reservations}. Scuola Superiore Sant’Anna, Pisa, Italy
 \bibitem{bbw2} Giorgio Buttazzo, Enrico Bini, Yifan Wu. \emph{Partitioning real-time applications over multi-core reservations}. Scuola Superiore Sant’Anna, Pisa, Italy
