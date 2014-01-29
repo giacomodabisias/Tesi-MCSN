@@ -548,6 +548,7 @@ Once all the pragmas have been translated and added in a tree, the new data stru
 This XML file will then be passed to the scheduler algorithm, that will add a semantic to each node to build a parallelization graph  which will be then used to create the tasks’ schedule. The original trees are not discarded and they will be used to produce the final code during a following parsing step.
 
 \subsection{Parallelism}
+\label{paralelism}
 
 Using the previously created XML file, which contains all the pragmas present in the source code, two different graphs are created. The first one reflects the pragmas structure, while the second one displays the execution flow of the different pragma blocks. Each pragma is represented by a node which contains all the relevant informations. All nodes derive from a general \emph{Node} class; the most relevant attributes are the following:
 \begin{itemize}
@@ -714,6 +715,7 @@ The new data is added to the \emph{flow graph} previously produced~\ref{xmlpragm
 
 
 \section{Schedule generation}
+\label{schedulegeneration}
 
 The problem of finding the best possible schedule on a multicore architecture is known to be a \emph{NP} hard problem. Given $N$ tasks and $M$ computing cores, the problem consists of creating $K$, possibly lower than $M$, execution flows in order to assign each task to a single flow. Each flow represents a computing core onto which the task should be run. To find a good solution a recursive algorithm has been developed which, by taking advantage of a search tree, figure~\ref{search_tree}, tries to explore all possible solutions, pruning "bad" brenches as soon as possible. Often the algorithm could not finish in a reasonable time due to the big number of possible solutions; to solve this problem a timer has been added to stop the computation after a certain amount of time given as input. \\
 
@@ -788,6 +790,7 @@ Each thread executes an infinite loop; at the beginning of each iteration the th
 
 \chapter{Implementation}
 \section{Scheduling XML schema}
+\label{schedulexmlschema}
 
 The schedule schema is produced by the scheduling algorithm only if a feasible solution is found; in this case an XML file is produced containing all the relevant informations for each task, which can be either a function node ora a pragma node. Each node contains the following fields:
 \begin{itemize}
@@ -852,8 +855,9 @@ Part of the XML produced for the example \ref{code} is shown  in \ref{schedule}
 \end{lstlisting}
 
 \section{Graph creation}
+\label{graph}
 
-After the profiling step the different types of gaphs described in \ref{a}. To create the main graph, the \emph{flow graph}, which represents the execution flow of the program, the following pseudo code has been implemented:
+After the profiling step, the different types of gaphs described in chap \ref{paralelism} are created. To generate the main graph, the \emph{flow graph}, which represents the execution flow of the program, the following pseudo code has been implemented:
 
 \begin{algorithm}[H]
 \begin{algorithmic}
@@ -903,7 +907,10 @@ After the profiling step the different types of gaphs described in \ref{a}. To c
 \end{algorithmic}
 \end{algorithm}
 
-\emph{getParalGraph()} creates a list of graphs, one for each function encountered in the pragma XML file created in \ref{f}; the \emph{scan()} function is called for each found function which will create and add all the pragma nodes encountered. All the informations found in the profile log, created in \ref{p} ,will be added to the node. The \emph{scan()} function has to call a special function, \emph{create\_diamond()}, when a pragma node whith nested nodes is encoutnered. This is due to the fact that special barrier nodes have to be added to maintain the OpeMP semantic. \emph{create\_diamond()} is a recursive function since there could be other pragma nodes nested inside nested pragma nodes. Each function creates not only the object graph, but also the graphical one using the \emph{pydot} library, a Python interface to the \emph{Graphviz dot} language. To visualize the graphical graphs \emph{Zgrviewer} can be used, a graph visualizer implemented in Java and based upon the \emph{Zoomable Visual Transformation Machine} \ref{a}.
+\emph{getParalGraph()} creates a list of graphs, one for each function encountered in the pragma XML file created in code \ref{xmlpragma}; the \emph{scan()} function is called for each one, in order to create and add all the pragma nodes encountered while reading the XML file. All the informations found in the profile log, created in code \ref{meanlog}, will be added to the each pragma node. The \emph{scan()} function has to call a special function, \emph{create\_diamond()}, when a pragma node whith nested nodes is encoutnered. This is due to the fact that special barrier nodes have to be added to maintain the OpeMP synchronization semantic. \emph{create\_diamond()} is a recursive function since there could be other pragma nodes nested inside nested pragma nodes. For each function not only the object graph is created, but also the graphical one using the \emph{pydot} library, a Python interface to the \emph{Graphviz dot} language. To visualize the graphical graphs \emph{Zgrviewer} can be used, a graph visualizer implemented in Java and based upon the \emph{Zoomable Visual Transformation Machine} \cite{zvtm}.
+
+
+
 \section{Profiling implementation}
 This chapter will show the structure and the implementation of the instrumented code and of the run-time support for the profiling phase.
 
@@ -984,13 +991,13 @@ To create the profiling log, containing all the statistics on the execution, the
 \end{algorithmic}
 \end{algorithm}
 
-The algorithm starts by reading from input the number of iteration to execute, $N$; after that it launces the executable $N$ times using as arguments the data contained in a parameter.txt file. After each execution, the algorithm, reads the produced log\_file and inserts the pragma/function data in a hash table, summing the execution times. After that the $N$ executions statistics are calculated using the \emph{Numpy} Python package and inserted in the hash table. The contained data is then used to construct a XML tree using the \emph{cElementTree} module. The so created XML tree is saved as a new profile log called "executable\_name"\_profile.xml. The structure of such file is represented in \ref{log}. The last step consists in inserting the statistics in the \emph{flow graph} produced in \ref{a}.
+The algorithm starts by reading from input the number of iteration to execute, $N$; after that it launces the executable $N$ times using as arguments the data contained in a parameter.txt file. After each execution, the algorithm, reads the produced log\_file and inserts the pragma/function data in a hash table, summing the execution times. After that the $N$ executions statistics are calculated, using the \emph{Numpy} Python package, and inserted in the hash table. The contained data is then used to construct a XML tree using the \emph{cElementTree} module. The so created XML tree is saved as a new profile log called "executable\_name"\_profile.xml. The structure of such file is represented in code \ref{meanlog}. The last step consists in inserting the statistics in the \emph{flow graph} produced in \ref{graph}.
 
 
 
 \section{Schedule generating tool}
 
-As described in \ref{a}, two versions of the scheduling algorithm have been developed: a sequential version and a parallel version. The main difference between this two algorithms consists in how the results are returned to the caller function. This is due to the fact that in \emph{Python}, even if more threads are created, there is only a single interpreter, so all the threads execution is serialized; to avoid this problem the tool creates different processes, each with its own \emph{Python} interpreter. In the sequential version, since the algorithm is working on shared memory, the empty result can passed directly by the caller to the function, which can then modify it. The parallel version uses instead queues implemented in the multiprocessing module, which provide an easy API to communicate between procesess, based on send and recive operations. 
+As described in chap \ref{schedulegeneration}, two versions of the scheduling algorithm have been developed: a sequential version and a parallel version. The main difference between this two algorithms consists in how the results are returned to the caller function. This is due to the fact that in \emph{Python}, even if more threads are created, there is only a single interpreter, so all the threads execution is serialized; to avoid this problem the tool creates different processes, each with its own \emph{Python} interpreter. In the sequential version, since the algorithm is working on shared memory, an empty result container can passed directly by the caller to the function, which can then modify it. The parallel version uses instead queues implemented in the Python multiprocessing module, which provide an easy API to communicate between procesess, based on send and recive operations. 
 
 \begin{algorithm}[H]
 \begin{algorithmic}
@@ -1068,9 +1075,18 @@ As described in \ref{a}, two versions of the scheduling algorithm have been deve
 \end{algorithmic}
 \end{algorithm}
 
-When the main program wants to call the parallel scheduler, it creates a task input sequence by randomizing the task\_list and  creates a new process passing to it a reference to the parallel scheduler call along with the requested arguments. All the procesess are then started and the main program remains in a wait state attending the result from the shared queues; after receiving the results, all the processes are joined and the best solution of all the executions is choosen.
+When the main program wants to call the parallel scheduler, it creates for each process to be created the following data:
+\begin{itemize}
+\item {a task input sequence by randomizing the task\_list}
+\item{An empty solution container.}
+\item{A multiprocessing queue, to return the result from the scheduler process.}
+\end{itemize}
 
-After finding the best schedule, it is necessary to check if it is feasible using the modified version of the Chetto\&Chetto algorithm.
+After that it creates a new process passing to it a reference to the parallel scheduler function call along with the necessary arguments. All the procesess are then started and the main program remains in a wait state attending the result from the shared queues; after receiving the results, all the processes are joined and the best solution of all the executions is choosen.
+
+As described in chap \ref{schedulegeneration} it is possible that the scheduler splits pragma \emph{for} and pragma \emph{parallel for} onto different threads. In this case new task are created which have to be added to the \emph{flow graph} created in chap \ref{graph}. To do so first all the new nodes are inserted in a hash table along with all the necessary informations of the originating node; after that the \emph{add\_new\_tasks(\dots)} function is invoked which taskes care of finding, for each new node, the originating node and substituting to it all the new splitted nodes. It is also necessary to add to all nodes the identifing flow id which has been calculated before by the scheduling algorithm.
+
+After creting the new final \emph{flow graph} and the schedule, it is necessary to check if the last one is feasible using the modified version of the Chetto\&Chetto algorithm.
 
 \begin{algorithm}[H]
 \begin{algorithmic}
@@ -1115,8 +1131,17 @@ After finding the best schedule, it is necessary to check if it is feasible usin
 
 \end{algorithm}
 
-The \emph{get\_min} function just returns the minium deadline set among all the children of a node. The \emph{get\_max} function returns the maximum deadline and arrival time found based on the criterions described in \ref{a}. \emph{all\_set} checks if all arrival times are set in the parents of a node.
-After the \emph{chetto} call the main program checks if all the deadlines and arrival times are positive and in case constructs the scheduling graph taking care of adding all the necessary synchronization barriers; the schedule is sjown in \ref{a}.
+The \emph{get\_min} function just returns the minium deadline which has been set among all the children of a node. The \emph{get\_max} function returns the maximum deadline and arrival time found based on the criterions described in chap \ref{schedulegeneration}. \emph{all\_set} checks if all arrival times are set in the parents of a node.
+After the \emph{chetto} call, the main program checks if all the deadlines and arrival times are positive and in case constructs the scheduling graph taking care of adding all the necessary synchronization barriers; the schedule is shown in code \ref{schedule}. The barriers are added accordingly to the following rules:
+\begin{itemize}
+\item {every task must be present in at least one barrier tag, meaning that some other task has to wait for the termination of its execution.}
+\item {The pragma \emph{parallel} has itself and all its children in the barrier section. (It has not its grandchildren)}
+\item {The pragma \emph{parallel for} has only itself as barrier, since its execution will be synchronized directly by the run-time support.}
+\item {All the other pragmas have to synchronize on all, and only, their children.}
+
+\end{itemize}
+
+
 \section{Final Execution}
 \subsection{Instrumentation}
 This paragraph will describe in details how the code is actually transformed accordingly to what was described in paragraph~\ref{designexecution}.
@@ -1267,6 +1292,7 @@ In OpenMP a \emph{barrier} pragma is used to notifies the run-time that some thr
 \bibitem{clanggcc}http://clang.llvm.org/features.html\#performance
 \bibitem{intelomprtl}https://www.openmprtl.org/
 \bibitem{clomp}https://github.com/motonacciu/clomp/
+\bibitem{zvtm}http://zvtm.sourceforge.net/zgrviewer.html
 
 
 \end{thebibliography}
