@@ -1272,9 +1272,75 @@ To complete this paragraph there is only to explain how are annotated \emph{barr
 
 In OpenMP a \emph{barrier} pragma is used to notifies the run-time that some threads need to synchronize on some tasks and it doesn’t execute any code, so the function \emph{callme()} is simply empty and there is no need for \emph{fx()}. During the execution of the final instrumented code, when the \emph{barrier} is encountered the program instantiate the \emph{Nested} object, passing to it the line number of the pragma and then it passes the object to the run-time. The run-time, when receives the object, consults the schedule, it discovers that it is of type \emph{barrier} and insert, where needed, synchronization points. 
 
-
-
 \subsection{Run-time support}
+The run-time support for the final parallel execution is composed of two classes: \emph{NestedBase} and \emph{ThreadPool}. \emph{NestedBase} is the virtual class from which every \emph{Nested} class derives; it just stores the identifier (line number) of the corresponding pragma, \emph{ int pragma\_id\_} and a list of tasks, \emph{queue<shared\_ptr<NestedBase>> todo\_job\_}. This common interface is necessary to handle each task; this is because each \emph{Nested} class, corresponding to a task, exists only inside its scope and it is not usable outside.   
+
+\emph{ThreadPool} is the class that implements the real-time support and it declares in its body three structures: \emph{ScheduleOptions}, \emph{JobIn} and \emph{JobQueue}. \emph{ThreadPool} has been implemented as a singleton class; the reasons which motivated this choice are the same as the ones shown in paragraph~\ref{profilerun}, for the \emph{ProfileTrackerLog} class: the first time that \emph{ThreadPool} is invoked is also instantiated and it is global, so that each task can access it easily. There is no need to protect the instantiation of the class with mutexes given that it is the constructor of this class that instantiates the threads pool and before it is created the program is single-thread. 
+
+\emph{ThreadPool}’s constructor parses the input XML schedule file exctracting all the relevant information from it. The first tag of the file contains the number of threads to be instantiated; this number is passed to the \emph{init} function which creates a thread object and pushes into the thread queue.
+
+\begin{lstlisting}[language=CCC, caption=Initialization of the thread pool., label=pool]
+vector<thread> threads_pool_;
+
+threads_pool_.reserve(pool_size);
+for(int i = 0; i < pool_size; i++) {
+    threads_pool_.push_back(thread(&ThreadPool::run,this, i));
+}
+\end{lstlisting}
+
+The constructor then parses each \emph{<Pragma>} block saving the retrieved information inside an object of type \emph{ScheduleOptions} that is inserted in \emph{map<int, ScheduleOptions> sched\_opt\_}; C++ \emph{map} is implemented as a binary tree, so to retrieve the schedule option for a given pragma the cost is $\mathcal{O}(log(n))$, where $n$ is the number of pragmas.  Code~\ref{schedopt} shows the structure of \emph{ScheduleOptions}.
+\begin{lstlisting}[language=CCC, label=schedopt]
+struct ScheduleOptions {
+    int pragma_id_;
+    int caller_id_;
+    /* In case of a parallel for, specify to the thread which part of the for to execute */
+    int thread_id_;
+    /* Indicates the pragma type: parallel, task, ... */
+    string pragma_type_;
+    /* Indicates the threads that have to run the task */
+    vector<int> threads_;
+    /* List of pragma_id_ to wait before completing the task */
+    vector<int> barriers_;
+};
+\end{lstlisting}
+
+Before going on explaining how the execution works there is the need to discuss about a characteristic of this tool that comes from the nested structure of the tasks. When a task has children it won’t terminate until all its children complete; this is nothing strange because only “control” tasks have children and their duty is only to instantiate and synchronize “work” tasks. The problem arises because a “control” pragma, while is waiting for its children, doesn’t leave the thread doing busy waiting, preventing other tasks to execute in the thread and causing a big waste of resources. Pragmas like \emph{parallel} and \emph{sections} usually don’t perform heavy computations, but simply instantiate tasks so an idea to solve the problem above would be to run them in additional “control” threads; in this way the number of threads will possibly exceed the number of cores, but their overhead would be limited. This approach has a problem that shows up when there is a long tail of nested tasks. Suppose a structure like this: a \emph{parallel} with a \emph{sections} containing some \emph{section} and one of this \emph{section} calls a function which in turn contains a \emph{parallel} with a \emph{sections} and so on. This scenario forces the run-time to instantiate one new thread for each of the “control” pragmas involved in the cascade and this is not a good strategy, both because it is very inefficient and also because it is not desirable to instantiate a random number of threads. For these reasons another approach has been chosen which is more complicated but it preserves the performance. The idea is to avoid the thread to do busy waiting and to force it to execute the “work” tasks; when a “control” task is instantiating “work” tasks it checks if one of them is scheduled in its own thread and in this case put it in the queue of jobs shown in the previous paragraph \emph{queue<shared\_ptr<NestedBase>> todo\_job\_}. Once the the task has instantiated all the other tasks it executes directly the job left in the queue, avoiding the waste of resources.
+
+
+
+
+
+The program passes the tasks (\emph{Nested} object) to the run-time using the function \emph{ThreadPool::call(NestedBase nested\_b)} which executes accordingly to the type of the given task and to the designed thread. First of all the function checks if the task is of type \emph{for} or \emph{parallel for} and in this case operates as follows: it splits the \emph{for} in as many jobs as specified in the schedule and starts pushing them. If the destination thread of a job is different from the  one that is currently executing, the run-tim pushes the job in the thread’s queue, otherwise the run-time temporarily skips the job. When the first scan of the jobs is completed the run-time starts the iteration from the beginning and directly executes each thread assigned to its own thread. When also this phase is complete the run-time pause the thread until all other dispatched jobs have compleated and then returns the execution to the main program. 
+
+In the case that the task received by the run-time is not of type \emph{for} the execution is a little more simple as there is only one job to allocate. The run-time checks which is destination thread of the task and in case is not the currently executing thread it simply pushes the task in the thread queue invoking the function \emph{push()}. If instead the designated thread is the one that it is executing three possible scenarios open up. It the task is of type \emph{parallel}, \emph{sections} or \emph{single} the run-time directly executes it and then it waits on the task’s barriers. Instead if the task is of type \emph{section} or \emph{task} the run-time returns to the main program, notifying it to add the task to the \emph{todo\_job\_} queue. A call to \emph{launch\_todo\_job()} is inserted in the instrumented code, in the last line of each \emph{fx()}; \emph{launch\_todo\_job()} simply scans the list of remaining jobs (\emph{queue<shared\_ptr<NestedBase>> todo\_job\_}) and executes them, if any.
+
+The last two things left to explain are how a task is transformed in a job and how synchronization works. A task contains all the information needed to execute, but no methods to perform synchronization on it; for this reason the run-time support  embeds the \emph{NesteBase} object in a new structure. Code~\ref{job} shows the most relevant variables contained in \emph{JobIn}.
+
+\begin{lstlisting}[language=CCC, label=jobin]
+struct JobIn {
+  shared_ptr<NestedBase> nested_base_;
+  /* Type of the task, e.g. parallel, section, ... */
+  string pragma_type_;
+ 
+  int job_id;
+  /* If pragma_type_ = "OMPForDirective" indicates which iterations to execute. */ 
+  ForParameter for_param_;
+  bool job_completed_ = false;
+  bool terminated_with_exceptions_ = false;
+
+  unique_ptr<condition_variable> done_cond_var_;
+  ... 
+};
+\end{lstlisting}
+
+The \emph{condition\_variable} is a new C++ type introduced in the standard library with the release of C++11 standard; it is a synchronization primitive that can be used to block a thread, or multiple threads at the same time, until either a notification is received from another thread or a timeout expires. Any thread that intends to wait on a \emph{condition\_variable} has to acquire a \emph{unique\_lock} first. The wait operations atomically release the mutex and suspend the execution of the thread. When the condition variable is notified, the thread is awakened, and the mutex is reacquired. This approach is very efficient because it completely avoid busy waiting, however it presents a problem; what does it happen if a job joins on another job that has already completed? It will wait on the condition variable, but the other job had already notified its completion and there will be a deadlock. To avoid this problem the variable \emph{bool job\_completed\_} has been inserted in \emph{JobIn}; its initial value is always initialized to false when the job is created and it is set to true as soon as the job completes. A thread that needs to synchronize on a job first checks the value of \emph{bool job\_completed\_}, if it is true it continues its execution, otherwise it waits on the \emph{condition\_variable}.
+
+Once the \emph{JobIn} object is ready the run-time puts it in \emph{map<JobID, vector<JobIn>> known\_jobs\_} and puts its reference in the queue of the thread designated by the schedule (map<int, queue<JobID>> work\_queue\_). The \emph{JobIn} object cannot be put directly in the thread’s queue because it must be accessible also by the threads that need to synchronize with it. 
+
+Each thread, when is launched, executes the \emph{ThreadPool::run()} function where the thread enters in a \emph{while(true)} loop. At the beginning of each iterations the threads pop an element from \emph{work\_queue\_)}, if any, it retrieves the real job in \emph{known\_jobs\_} and invokes \emph{job\_in.nested\_base->callme()}, passing to it \emph{for\_parameter} if the job is of type \emph{for}. When the function returns, if the job was of type \emph{sections} or \emph{single}, joins on the tasks listed in \emph{barriers\_} and then finally changes the value of \emph{job\_completed\_} to true and notifies the \emph{condition\_variable}.
+
+When all the tasks have been executed and the program terminates the \emph{ThreadPool} object is destroyed and its constructor invoked. The deconstructor push in each thread’s working queue a special job that signals the thread to exit from the \emph{while()} loop and then joins on all threads killing them.
+
 
 \chapter{Performance evaluation}
 \section{A computer vision application}
