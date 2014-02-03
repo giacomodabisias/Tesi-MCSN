@@ -1367,7 +1367,18 @@ When all the tasks have been executed and the program terminates, the \emph{Thre
 
 
 \chapter{Performance evaluation}
-\section{A computer vision application}
+\section{A Computer vision application}
+Computer vision is a field that includes methods for acquiring, processing, analyzing, and understanding images and, in general, high-dimensional data from the real world in order to produce numerical or symbolic information, in the forms of decisions. Applications range from tasks such as industrial machine vision systems which, say, inspect bottles speeding on a production line, to research into artificial intelligence and computers or robots that can comprehend the world around them. This applications usually consists of a series of different tasks which work on single image. Some basic operations used in this field are:
+\begin{itemize}
+\item{basic image processing; this consists of any form of signal processing for which the input is an image, such as a photograph or video frame and the output may be either an image or a set of characteristics or parameters related to the image.}
+\item{Feature extraction used to simplify the amount of resources required to describe a large set of data accurately.}
+\item{Image reconstruction which is used when, for example, an image must be reconstructed from projections of an object.}
+\item{Feature matching.}
+\item{Homographies which are an isomorphism of projective spaces, induced by an isomorphism of the vector spaces from which they are derived.}
+\end{itemize}
+
+A widely used operation sequence consists in aquiring an image, filtering out all the irrelevant details, extracting some features, match the features against a predefined object and then build a homography matrix in order to obtain the position of the object in the image. In general computer vision operations can work on single pixels, blocks of pixels or entire images; depending on this it is possible to apply task parallelism or data parallelism. \emph{Map-reduce} and \emph{Pipelines} are farly common in this sector given that often a stream of images is processed by applying different filters in sequence, using a \emph{Pipeline}; each filter is parallelized dividing the image in chuncks which are processed by different computing units and then reassembled to form the final image, \emph{Map-reduce}.\section{A computer vision application}
+
 \section{Results with statistics}
 
 \chapter{Conclusions}
