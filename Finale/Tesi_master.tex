@@ -16,6 +16,8 @@
 \usepackage{geometry}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
+\usepackage{pdfpages}
+
 
 %\usepackage[colorlinks]{hyperref}
 %\hypersetup{urlcolor=darkblue}
@@ -215,6 +217,12 @@ With this subset of \emph{OpenMP} it is possible to create all the standard comp
 
 \emph{OpenMp} synchronization directives as \begin{bf}$\#$pragma omp barrier\end{bf} are not supported for now; only the synchronization semantic given by the above directives is ensured. 
 
+\begin{figure}[H]
+\centering
+\includegraphics[scale=0.8]{omp.pdf}
+\caption{OpenMP directives nested structure.}
+\end{figure}
+
 \section{Clang as LLVM frontend}
 
 Clang \cite{clang} is a compiler front-end for the C, C++ and Objective-C programming languages and tit relies on LLVM as back-end. 
@@ -249,6 +257,12 @@ Lastly there is the \emph{Stmt} type which refereres to the control flow (\emph{
 Together with the above mentioned three types, there are other “glue” classes that allow to complete the semantic. The most remarkable ones are: the \emph{TemplateArgument} class, that, as the name suggests, allows to handle the template semantic and the \emph{DeclContex} class which is used to extend \emph{Decl} semantic and will be explained later. 
 
 To built the tree the nodes are connected to each other; in particular a node has references to its children. For example a \emph{ForStmt} would have a pointer to the \emph{CompoundStmt} containing its body, as well as to the \emph{Expr} containing the condition and the \emph{Stmt} containing the initialization. A special case is the \emph{Decl} class which is designed not to have children and thus can only be a leaf in the AST. There are cases in which a \emph{Decl} node is needed to have children, like for example a \emph{FunctionDecl} which has to refer to the \emph{CompoundStmt} node containing its body or to the list of its parameters (\emph{ParmVarDecl}). The \emph{DeclContext} class has been designed to solve this issue; when a \emph{Decl} node needs to have children it can just extend the \emph{DeclContext} class and it will be provided with the rights to points to other nodes. 
+
+\begin{figure}[H]
+\centering
+\includegraphics[scale=0.6]{clang_classes.pdf}
+\caption{Clang class hierarchy.}
+\end{figure}
 
 There are two other classes that are worth mentioning: \emph{SourceLocation} and \emph{SourceManager} class. The \emph{SourceLocation} class allows to map a node to the source code. The \emph{SourceManager} instead provides the methods to calculate the location of each node. These classes are very powerful as they allow to retrieve both the start and the end position of a node in the code, giving the exact line and column number. For example given a \emph{ForStmt}, the \emph{SourceManager} is able to provide the line number of where the stmt starts and ends, but also the column number where the loop variable is declared or where the increment is defined.
 
@@ -343,10 +357,9 @@ The developed tool works accordingly to the following steps:
 
 Picture \ref{framework} gives a visual representation of the framwork.
 
-
 \begin{figure}[H]
 \centering
-\includegraphics[width = 160mm, height = 180mm]{framework.png}
+\includegraphics[scale=0.5]{tgraph.pdf}
 \caption{The famework structure}
 \label{framework}
 \end{figure}
@@ -488,6 +501,12 @@ for(int i = init_val; i < cond_val; i ++)
 \end{lstlisting}
 becoming understandable by the framework.
 
+\begin{figure}
+\centering
+\includegraphics[scale=0.5]{pragma_exctraction.pdf}
+\caption{Execution flow of the pragma exctraction.}
+\end{figure}
+
 Once all the pragmas have been translated and added in a tree, the new data structures are translated in XML format. Each object is described either by a \emph{Pragma} tag or by a \emph{Function} tag. The two tags contains a list of other tags, one for  each of the variables contained in the tree’s objects. The semantic of XML allows also to translate the original tree structure without loosing informations and this is done by nesting \emph{Pragma} tags one inside the other. The outermost tags are of type \emph{Function}; each function is the root of a tree so it will contain one or more \emph{Pragma} tags. In turn each \emph{Pragma} tag, if containing children nodes in its original tree, will contain other \emph{Pragma} tags. Code~\ref{xmlpragma} represent a portion of the XML code generated from the sample code in paragraph~\ref{example}.
 
 \begin{lstlisting}[language=XML, caption=XML file of the pragma structure of Code~\ref{code}., label=xmlpragma]
@@ -581,7 +600,7 @@ In the \emph{call graph} each node invoking a function containing pragmas is con
 \begin{figure}[H]
 \centering
 \includegraphics[width = 130mm, height = 76mm]{call_graph.png}
-\caption{call graph example}
+\caption{Call graph example.}
 \label{call_graph}
 \end{figure}
 
@@ -722,7 +741,7 @@ The problem of finding the best possible schedule on a multicore architecture is
 \begin{figure}[H]
 \centering
 \includegraphics[width = 130mm, height = 76mm]{search_tree.png}
-\caption{search tree}
+\caption{Search tree.}
 \label{search_tree}
 \end{figure}
 
@@ -786,6 +805,12 @@ Now the execution of the run-time will be presented step by step. First of all t
 Every time the main program invokes the run-time support it passes to it the object containing the function to be executed. The run-time embeds the received object in an ad-hoc class, that includes the methods and variables needed to perform synchronization on that task. The created job is inserted in a vector shared by all threads; at this point the run-time searches which thread has been designated to run that job and puts an identifier of the job in that thread’s job queue. In case of a For task the run-time has to execute some additional steps: if For task is splitted on more threads the run-time has to duplicate the task for each thread involved; each copy is initialized with an incremental identifier starting from zero and it also receives the total number of threads concurring in the execution of the task. These values are mandatory to inform each thread about the iterations of the For it has to execute. 
 
 Each thread executes an infinite loop; at the beginning of each iteration the thread checks if its queue contains a references to a job and in case pulls the first identifier usesing it to retrieve the real job in the shared vector and executes it. When the job ends the thread checks the schedule to see if it has to wait for other tasks to complete. After that the thread notifies that the job has been completed so that any other thread waiting on that job can continue their executions. The common jobs’ vector is needed because it allows to share information of a task between all the threads, in particular it is fundamental to perform task synchronization. In Code~\ref{code} the \emph{Sections} task at line 16, after launching its children tasks, has to wait for them to complete in order to finish. This rule is true for each “control” pragma that has children. 
+
+\begin{figure}[H]
+\centering
+\includegraphics[scale=0.6]{runtime_execution.pdf}
+\caption{Flow execution of the runtime support.}
+\end{figure}
 
 
 \chapter{Implementation}
