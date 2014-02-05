@@ -1,4 +1,4 @@
-\documentclass[a4paper,11pt,oneside]{book}
+\documentclass[a4paper,12pt,oneside]{book}
 \usepackage{latexsym}
 \usepackage{braket}
 \usepackage{graphicx}
@@ -159,9 +159,9 @@ The described tool aims to solve the previously stated problems providing the fo
 
 In the last years the diffusion of multi-core platforms has rapidly increased enhancing the need of tools and libraries to write multi-threaded programs. 
 
-Several major software companies developed their own multi-thread libraries like Intel with Thread Building Block (TBB) and Microsoft with Parallel Patterns Library (PPL). There are also several open-source libraries like Boost and OpenMP. With the release of C++11 standard also the standard C++ library supports threading.
+Several major software companies developed their own multi-thread libraries like Intel with Thread Building Block (TBB) \cite{tbb} and Microsoft with Parallel Patterns Library (PPL) \cite{ppl}. There are also several open-source libraries like Boost \cite{boost} and OpenMP \cite{openmp}. With the release of C++11 standard also the standard C++ library supports threading.
 
-Lately appeared also automatic parallelization tools; these softwares allow to automatically transform a sequential code into an equivalent parallel one, like YUCCA and the Intel C++ compiler. 
+Lately appeared also automatic parallelization tools; these softwares allow to automatically transform a sequential code into an equivalent parallel one, like the Intel C++ compiler \cite{icc} and Parallware \cite{parallware}.  
 
 Lastly it is worth to mention briefly GPUs, that have become accessible to programmers with the release of tools like Nvidia's CUDA or the open-source OpenCL. These libraries allow the user to easily run code on the GPU; of course the program to run must have some particular features because GPU are still not general purpose. 
 
@@ -231,7 +231,7 @@ A compiler front-end is in charge of analyzing the source code to build the inte
 
 The IR is used by the compiler back-end (LLVM in the case of Clang) which transforms it into machine language, operating in three macro phases: analysis, optimization and code generation. 
 
-The Clang project was started by Apple and was open-sourced in 2007. Nowadays its development is completely open-source and besides Apple there are several major software companies involved, such as Google and Intel.
+The LLVM project was started at the University of Illinois at Urbana–Champaign, under the direction of Vikram Adve and Chris Lattner \cite{llvm1} \cite{llvm2}. In 2005 Apple hired Lattner and formed a team to work on the LLVM system for various uses within Apple's development systems; the Clang compiler was born as a project of this team and was open-sourced in 2007. Nowadays its development is completely open-source and besides Apple there are several major software companies involved, such as Google and Intel.
 
 Clang is designed to be highly compatible with GCC and its command line interface is similar to and shares many flags and options with it. Clang was chosen for the development of this framework over GCC for three main reasons:
 \begin{itemize}
@@ -240,7 +240,7 @@ Clang is designed to be highly compatible with GCC and its command line interfac
  \item Clang provides the possibility to perform code analysis, information extraction and, most important, source-to-source transformation.
 \end{itemize}
 
-Clang was not the only possibility out of GCC, since also the Rose Compiler and Mercurium were viable options \cite{rose}. 
+Clang was not the only alternative to GCC, since also other open-source projects, like the Rose Compiler \cite{rose} and Mercurium \cite{mercurium} were viable options. The Rose Compiler has been developed at the Lawrence Livermore National Laboratory (USA) and it provides the possibility to perform source-to-source transformation and to build code analysis tools, but unfortunately it doesn't support OpenMP. Mercurium has been devolped at the Barcelona Supercomputing Center and it provides source-to-source transformation tools as well as the support to OpenMP, however it has not been chosen because of its little spread, comparing it with Clang. 
 
 The strength of Clang is in its implementation of the Abstract Syntax Tree (AST). Clang’s AST is different from ASTs produced by some other compilers in that it closely resembles both the written C++ code and the C++ standard.
 
@@ -1407,18 +1407,25 @@ The schedule algorithm could also be improved with better heuristics in order to
 
 The profiling step could extract more informations of the working platform to enhance the scheduling sequence and could check automatically different inputs to obtain the best results.
 
-\begin{thebibliography}{15}
-\bibitem{bbw} Giorgio Buttazzo, Enrico Bini, Yifan Wu. \emph{Partitioning parallel applications on multiprocessor reservations}. Scuola Superiore Sant’Anna, Pisa, Italy
-\bibitem{bbw2} Giorgio Buttazzo, Enrico Bini, Yifan Wu. \emph{Partitioning real-time applications over multi-core reservations}. Scuola Superiore Sant’Anna, Pisa, Italy
-\bibitem{mfp} Ricardo Garibay-Martinez, Luis Lino Ferreira and Luis Miguel Pinho, \emph{A Framework for the Development of Parallel and Distributed Real-Time Embedded Systems}
-\bibitem{pop}Antoniu Pop (1998). \emph{OpenMP and Work-Streaming Compilation in GCC}. 3 April 2011, Chamonix, France
+\begin{thebibliography}{30}
+\bibitem{tbb} C. Pheatt. \emph{Intel® threading building blocks.} Journal of Computing Sciences in Colleges 23.4, 2008.
+\bibitem{ppl} D. Leijen, S. Wolfram, S. Burckhardt. \emph{The design of a task parallel library.} Acm Sigplan Notices. Vol. 44. No. 10. ACM, 2009.
+\bibitem{boost} D. Abrahams, A. Gurtovoy. \emph{C++ template metaprogramming: concepts, tools, and techniques from Boost and beyond.} Pearson Education, 2004.
+\bibitem{openmp} L. Dagum, R. Menon. \emph{OpenMP: an industry standard API for shared-memory programming.} Computational Science \& Engineering, IEEE 5.1, 1998.
+\bibitem{icc} X. Tian, et al. \emph{Intel® OpenMP C++/Fortran Compiler for Hyper-Threading Technology: Implementation and Performance.} Intel Technology Journal 6.1, 2002.
+\bibitem{parallware} http://www.appentra.com/appentra/parallware-auto-parallelizer-source-to-source-compiler/
 \bibitem{clang}http://clang.llvm.org/
+\bibitem{llvm1} C. Lattner. \emph{LLVM: An infrastructure for multi-stage optimization}. Master Thesis, University of Illinois at Urbana-Champaign, 2002.
+\bibitem{llvm2} C. Lattner, V. Adve. \emph{LLVM: A compilation framework for lifelong program analysis \& transformation}. International Symposium on Code Generation and Optimization, 2004. 
 \bibitem{clanggcc}http://clang.llvm.org/features.html\#performance
+\bibitem{rose} D. Quinlan. \emph{ROSE: Compiler support for object-oriented frameworks.} Parallel Processing Letters 10.02n03, 2000.
+\bibitem{mercurium} J. Balart, et al. \emph{Nanos mercurium: a research compiler for openmp.} Proceedings of the European Workshop on OpenMP. Vol. 8. 2004.
 \bibitem{intelomprtl}https://www.openmprtl.org/
 \bibitem{clomp}https://github.com/motonacciu/clomp/
+\bibitem{bbw2} G. Buttazzo, E. Bini, Y. Wu. \emph{Partitioning real-time applications over multi-core reservations}. Scuola Superiore Sant’Anna, Pisa, Italy, 2009
 \bibitem{zvtm}http://zvtm.sourceforge.net/zgrviewer.html
-\bibitem{DLR}Dagum, Leonardo, and Ramesh Menon. "OpenMp: an industry standard API for shared-memory programming." Computational Science  Engineering, IEEE 5.1 1998
-
+\bibitem{mfp} Ricardo Garibay-Martinez, Luis Lino Ferreira and Luis Miguel Pinho, \emph{A Framework for the Development of Parallel and Distributed Real-Time Embedded Systems}
+\bibitem{pop}Antoniu Pop (1998). \emph{OpenMP and Work-Streaming Compilation in GCC}. 3 April 2011, Chamonix, France
 \end{thebibliography}
 
 \end{document}
