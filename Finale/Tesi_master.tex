@@ -7,7 +7,6 @@
 \usepackage{verbatim}
 \usepackage{amssymb}
 \usepackage{amsthm}
-\usepackage{graphicx}
 \usepackage[english]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{listings}
@@ -17,7 +16,6 @@
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{pdfpages}
-
 
 %\usepackage[colorlinks]{hyperref}
 %\hypersetup{urlcolor=darkblue}
@@ -31,17 +29,20 @@
   commentstyle=\color{gray}\upshape
 }
 
-\definecolor{darkblue}{rgb}{0.0,0.0,0.8}
-\definecolor{green}{rgb}{0,0.6,0}
+\definecolor{blue}{RGB}{0,0,180}
+\definecolor{darkblue}{RGB}{72,61,139} 
+\definecolor{green}{rgb}{0,0.4,0}
 \definecolor{gray}{rgb}{0.5,0.5,0.5}
-\definecolor{darkgray}{rgb}{0.105,0.105,0.105}
+\definecolor{darkgray}{rgb}{0.4,0.4,0.4}
 \definecolor{mauve}{rgb}{0.58,0,0.82}
 \definecolor{black}{rgb}{0,0,0}
-\definecolor{purple}{rgb}{0.72,0.61,0.139}
-%\definecolor{ocra}{rgb}{0.204, 0.119, 0.34}
-\definecolor{ocra}{rgb}{0.184,0.134,0.11}
+\definecolor{purple}{RGB}{138,43,226}
+%\definecolor{ocra}{rgb}{0.204, 0.119, 0.34}218-165-32
+\definecolor{ocra}{RGB}{218,165,32}
 \definecolor{maroon}{rgb}{0.5,0,0}
 \definecolor{darkgreen}{rgb}{0,0.5,0}
+%\definecolor{indianred}{RGB}{205,92,92}165-42-42
+\definecolor{indianred}{RGB}{178,34,34}
 
 \lstdefinelanguage{XML}
 {
@@ -51,8 +52,8 @@
   morecomment=[s]{!--}{--},
   commentstyle=\color{darkgreen},
   moredelim=[s][\color{black}]{>}{<},
-  moredelim=[s][\color{red}]{\ }{=},
-  stringstyle=\color{blue},
+  moredelim=[s][\color{green}]{\ }{=},
+  stringstyle=\color{ocra},
   identifierstyle=\color{maroon}
 }
 
@@ -70,15 +71,19 @@
   stepnumber=1,                    
   tabsize=2,                       
   title=\lstname,                   
- language=C++,
- basicstyle=\ttfamily,
- morekeywords={A}, 
- keywordstyle=\color{darkblue}\ttfamily,
- %identifierstyle=\color{green},
- stringstyle=\color{red}\ttfamily,
- %numberstyle=\color{purple}
- commentstyle=\color{gray}\ttfamily,
- morecomment=[l][\color{mauve}]{\#}
+  %language=C++,
+  basicstyle=\ttfamily,
+  stringstyle=\color{ocra}\ttfamily,
+  morestring=[b]",
+  %commentstyle=\color{gray}\ttfamily,
+  identifierstyle=\color{black}\ttfamily,
+  morecomment=[l][\color{maroon}]{pragma\ },
+  morecomment=[l][\color{gray}]{//},
+  morecomment=[s][\color{gray}]{/*}{*/},
+  keywordstyle=[1]\color{blue},
+  keywords=[1]{int,float,char, class, void, unsigned, struct, bool},
+  keywordstyle=[0]\color{indianred},
+  keywords=[0]{include,for,if,while,return,public,break}
 }
 
 \lstdefinelanguage{AST}{ 
@@ -92,12 +97,13 @@
   tabsize=2,                       
   title=\lstname,                   
   morekeywords={A}, 
-  keywordstyle=\color{black},
- language=C++,
+  keywordstyle=\color{blue},
+  language=C++,
+  morecomment=[s][\color{gray}]{<}{>},
   %identifierstyle=\color{green},
   stringstyle=\color{ocra},
   %numberstyle=\color{purple},
- basicstyle=\color{gray}\scriptsize
+ basicstyle=\color{black}\scriptsize
 }
 \renewcommand{\lstlistingname}{Code}
 \geometry{left=4cm}
@@ -372,8 +378,8 @@ Picture \ref{framework} gives a visual representation of the framwork.
 \label{example}
 A simple example has been developed in order to show how the tool works in each step. Given the \emph{OpenMP} semantic described before, the two \begin{bf}$\#$pragma omp section\end{bf} are executing in parallel and synchronize at the end of the \begin{bf}$\#$pragma omp parallel\end{bf}. The clause \emph{private(bar)} makes the \emph{bar} variable private to each thread in order to have no race condition. To execute the example with some timing constrains some code has been added inside of the for loop which is not relevant for the explaination purpose.
 
-\lstset{language=CCC}
-\begin{lstlisting}[caption=Sample code, label=code]
+%\lstset{language=CCC}
+\begin{lstlisting}[language=CCC, caption=Sample code, label=code]
 #include <omp.h>
 
 int work(int bar){
@@ -1450,9 +1456,9 @@ An interestin evolution would consist in adding a feature for specifying periodi
 #pragma omp parallel for
 for(...) {
 	...
-	work(); \\executes the periodictask
-	wait(time); \\waits until the next activation time
-	if(!continue) { \\checks the termination condition
+	work(); //executes the periodictask
+	wait(time); //waits until the next activation time
+	if(!continue) { //checks the termination condition
 		break;
 	}
 	...
