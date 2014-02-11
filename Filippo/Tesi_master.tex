@@ -7,7 +7,6 @@
 \usepackage{verbatim}
 \usepackage{amssymb}
 \usepackage{amsthm}
-\usepackage{graphicx}
 \usepackage[english]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{listings}
@@ -17,7 +16,6 @@
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{pdfpages}
-
 
 %\usepackage[colorlinks]{hyperref}
 %\hypersetup{urlcolor=darkblue}
@@ -31,17 +29,20 @@
   commentstyle=\color{gray}\upshape
 }
 
-\definecolor{darkblue}{rgb}{0.0,0.0,0.8}
-\definecolor{green}{rgb}{0,0.6,0}
+\definecolor{blue}{RGB}{0,0,180}
+\definecolor{darkblue}{RGB}{72,61,139} 
+\definecolor{green}{rgb}{0,0.4,0}
 \definecolor{gray}{rgb}{0.5,0.5,0.5}
-\definecolor{darkgray}{rgb}{0.105,0.105,0.105}
+\definecolor{darkgray}{rgb}{0.4,0.4,0.4}
 \definecolor{mauve}{rgb}{0.58,0,0.82}
 \definecolor{black}{rgb}{0,0,0}
-\definecolor{purple}{rgb}{0.72,0.61,0.139}
-%\definecolor{ocra}{rgb}{0.204, 0.119, 0.34}
-\definecolor{ocra}{rgb}{0.184,0.134,0.11}
+\definecolor{purple}{RGB}{138,43,226}
+%\definecolor{ocra}{rgb}{0.204, 0.119, 0.34}218-165-32
+\definecolor{ocra}{RGB}{218,165,32}
 \definecolor{maroon}{rgb}{0.5,0,0}
 \definecolor{darkgreen}{rgb}{0,0.5,0}
+%\definecolor{indianred}{RGB}{205,92,92}165-42-42
+\definecolor{indianred}{RGB}{178,34,34}
 
 \lstdefinelanguage{XML}
 {
@@ -51,8 +52,8 @@
   morecomment=[s]{!--}{--},
   commentstyle=\color{darkgreen},
   moredelim=[s][\color{black}]{>}{<},
-  moredelim=[s][\color{red}]{\ }{=},
-  stringstyle=\color{blue},
+  moredelim=[s][\color{green}]{\ }{=},
+  stringstyle=\color{ocra},
   identifierstyle=\color{maroon}
 }
 
@@ -70,15 +71,19 @@
   stepnumber=1,                    
   tabsize=2,                       
   title=\lstname,                   
- language=C++,
- basicstyle=\ttfamily,
- morekeywords={A}, 
- keywordstyle=\color{darkblue}\ttfamily,
- %identifierstyle=\color{green},
- stringstyle=\color{red}\ttfamily,
- %numberstyle=\color{purple}
- commentstyle=\color{gray}\ttfamily,
- morecomment=[l][\color{mauve}]{\#}
+  %language=C++,
+  basicstyle=\ttfamily,
+  stringstyle=\color{ocra}\ttfamily,
+  morestring=[b]",
+  %commentstyle=\color{gray}\ttfamily,
+  identifierstyle=\color{black}\ttfamily,
+  morecomment=[l][\color{maroon}]{pragma\ },
+  morecomment=[l][\color{gray}]{//},
+  morecomment=[s][\color{gray}]{/*}{*/},
+  keywordstyle=[1]\color{blue},
+  keywords=[1]{int,float,char, class, void, unsigned, struct, bool},
+  keywordstyle=[0]\color{indianred},
+  keywords=[0]{include,for,if,while,return,public,break}
 }
 
 \lstdefinelanguage{AST}{ 
@@ -92,12 +97,13 @@
   tabsize=2,                       
   title=\lstname,                   
   morekeywords={A}, 
-  keywordstyle=\color{black},
- language=C++,
+  keywordstyle=\color{blue},
+  language=C++,
+  morecomment=[s][\color{gray}]{<}{>},
   %identifierstyle=\color{green},
   stringstyle=\color{ocra},
   %numberstyle=\color{purple},
- basicstyle=\color{gray}\scriptsize
+ basicstyle=\color{black}\scriptsize
 }
 \renewcommand{\lstlistingname}{Code}
 \geometry{left=4cm}
@@ -124,7 +130,7 @@ The aim of this thesis is to create a framework for guaranteeing \emph{real-time
 
 The last years have seen the transition from single core architectures towards multicore architectures, mainly in the desktop and server enviroment. Lately also small devices as smartphones, embedded microprocessors and tablets have started to use more than a single core processor. The actual trend is to use a lot of cores with just a reduced instruction set as in \emph{general purpose GPUs}.
 
-Also \emph{real time} systems are becoming more and more common, finding their place in almost all aspects of our daily routines; this systems often consist of several applications executing concurrently on shared resources. 
+\emph{Real time} systems are becoming more and more common, finding their place in almost all aspects of our daily routines; this systems often consist of several applications executing concurrently on shared resources. 
 The main differences between these systems and a system designed to achive high performance can be summarized as follows:
 \begin{itemize}
 \item{ \emph{real time} programs need strict timing guarantees, while high performance programs try to achive the lowest possible computation time, usually in a best effort manner.}
@@ -141,6 +147,9 @@ The most relevant drawback of actual real time systems is that most of them are 
 
 The first solution has the disadvantage that, if the computing resources are already perfectly allocated, it is not possible to find any better scheduling for the tasks to make space for a new job. A faster single core is also often not feasible, given the higher power consumption and temperature; this aspect is very relevant in embedded devices. 
 The natural solution to the problem is to exploit the new trend toward multicore systems; this solution has opened a new research field and has brought to view a lot of new challenging problems. Given that the number of cores is doubling according to the well known \emph{Moores law}, it is very important to find a fast and architecture independent way to map a set of \emph{real time} tasks on computing cores. With such a tool, it would be possible to upgrade or change the computing architecture in case of new \emph{real time} jobs, just scheduling them on the new system.
+
+There is plenty of works on the problem of scheduling \emph{real time} tasks on multiprocesses, but they are all mainly theoretical \cite{bbw2}\cite{real1}\cite{real2}.
+
 
 
 \section{Objectives}
@@ -171,32 +180,32 @@ The first library has to satisfy the following requirements: it has to allow to 
 
 What stated above is also crucial since one of the steps of the tool is to extract informations from the parallel code, such as the differences between two parallels regions of code and their precedences and dependencies. These informations are fundamental to be able to transform the code in a set of tasks and to provide to the schedule algorithm the most accurate parameters. Furthermore the parallel code has to be instrumented both to profile it and to divide it into tasks for the final execution. The analysis of the various libraries didn’t focus on their execution performance as the aim of the tool is to use the library calls just to get the structure of the parallel code.
 
-\emph{OpenMP} resulted as the best choice and its behaviour is described in full details in chapter~\ref{openmp}. The main motivations that brought to this decision are the following. First of all  \emph{OpenMP} has a minimal code overhead since it just adds annotations inside the original sequential code, without any needs of changing its structure.  \emph{OpenMP} works embedding pieces of code inside C++ scopes and adding annotations to each of these scopes by mean of pragma constructs. The scopes automatically identify the distinct code blocks (tasks) and also give immediately some information about the dependencies among them. The use of pragmas is very convenient as they are skipped by the compiler if not informed with a specific flag. This implies that, given an  \emph{OpenMP} code, to run it sequentially is just enough to not inform the compiler of the presence of  \emph{OpenMP}; this feature will be usefull to profile the code. Finally  \emph{OpenMP} is well supported by the main compilers and it has a strong and large develop community, including big companies such as Intel and IBM.  
+OpenMP resulted as the best choice and its behaviour is described in full details in chapter~\ref{openmp}. The main motivations that brought to this decision are the following. First of all  OpenMP has a minimal code overhead since it just adds annotations inside the original sequential code, without any needs of changing its structure.  OpenMP works embedding pieces of code inside C++ scopes and adding annotations to each of these scopes by mean of pragma constructs. The scopes automatically identify the distinct code blocks (tasks) and also give immediately some information about the dependencies among them. The use of pragmas is very convenient as they are skipped by the compiler if not informed with a specific flag. This implies that, given an  OpenMP code, to run it sequentially is just enough to not inform the compiler of the presence of  OpenMP; this feature will be usefull to profile the code.  OpenMP is well supported by the main compilers and it has a strong and large develop community, including big companies such as Intel and IBM. OpenMP has already been used as support to simulate tasks structure for a parallel scheduling algorithm in \cite{realtimeopenmp}. Here the authors analyze the problem of scheduling periodic real-time tasks on multiprocessors under the fork-join structure used in OpenMP; the article produces just theoretical results. OpenMP has also been used as a programming environment for embedded MultiProcessor Systems-On-Chip (MPSoCs) (\cite{benini}) which are usually used to run real-time programs, confirming once again the choice of OpenMP. 
 
 The second library has instead opposite requirements as it has to be highly efficient; for this reason the C++ standard library has been chosen. Since the release of C++11 standard, the C++ standard library was provided with threads, mutexes, semaphores and condition variables. This library has the drawback of being not easy to use when coming to complicated and structured tasks, but on the other hand it is fully customizable as it allows to instantiate and use directly system threads. It provides the chance to directly tune the performance of the whole program and it allows to allocate each task on a specific thread, unlike the other parallelization tools.
 
 \section{The OpenMP standard}
 \label{openmp}
 
-Jointly defined by a group of major computer hardware and software vendors, \emph{OpenMP} is a portable, scalable model that gives shared-memory parallel programmers a simple and flexible interface for developing parallel applications for platforms ranging from desktops to supercomputers.
+Jointly defined by a group of major computer hardware and software vendors, OpenMP is a portable, scalable model that gives shared-memory parallel programmers a simple and flexible interface for developing parallel applications for platforms ranging from desktops to supercomputers.
 
-The \emph{OpenMP API} uses the fork-join model of parallel execution. Multiple threads of execution perform tasks defined implicitly or explicitly by \emph{OpenMP} directives. The \emph{OpenMP API} is intended to support programs that will execute correctly both as parallel programs (multiple threads of execution and a full \emph{OpenMP} support library) and as sequential programs (directives ignored and a simple \emph{OpenMP} stubs library).
+The OpenMP API uses the fork-join model of parallel execution. Multiple threads of execution perform tasks defined implicitly or explicitly by OpenMP directives. The OpenMP API is intended to support programs that will execute correctly both as parallel programs (multiple threads of execution and a full OpenMP support library) and as sequential programs (directives ignored and a simple OpenMP stubs library).
 
-An \emph{OpenMP} program begins as a single thread of execution, called an initial thread. An initial thread executes sequentially, as if enclosed in an implicit task region, called an initial task region that is defined by the implicit parallel region surrounding the whole program.
+An OpenMP program begins as a single thread of execution, called an initial thread. An initial thread executes sequentially, as if enclosed in an implicit task region, called an initial task region that is defined by the implicit parallel region surrounding the whole program.
 
-If a construct creates a data environment after an \emph{OpenMP} directive, the data environment is created at the time the construct is encountered. Whether a construct creates a data environment is defined in the description of the construct. When any thread encounters a parallel construct, the thread creates a team of itself and zero or more additional threads and becomes the master of the new team. The code for each task is defined by the code inside the parallel construct. Each task is assigned to a different thread in the team and becomes tied; that is, it is always executed by the thread to which it is initially assigned. The task region of the task being executed by the encountering thread is suspended, and each member of the new team executes its implicit task. Each directive uses a number of threads defined by the standard or it can be set using the function call \emph{void omp\_set\_num\_threads(int num\_threads)}. In this project this call is not allowed and the thread number for each directive is managed separately. There is an implicit barrier at the end of each parallel construct; only the master thread resumes execution beyond the end of the parallel construct, resuming the task region that was suspended upon encountering it. Any number of parallel constructs can be specified in a single program. 
+If a construct creates a data environment after an OpenMP directive, the data environment is created at the time the construct is encountered. Whether a construct creates a data environment is defined in the description of the construct. When any thread encounters a parallel construct, the thread creates a team of itself and zero or more additional threads and becomes the master of the new team. The code for each task is defined by the code inside the parallel construct. Each task is assigned to a different thread in the team and becomes tied; that is, it is always executed by the thread to which it is initially assigned. The task region of the task being executed by the encountering thread is suspended, and each member of the new team executes its implicit task. Each directive uses a number of threads defined by the standard or it can be set using the function call \emph{void omp\_set\_num\_threads(int num\_threads)}. In this project this call is not allowed and the thread number for each directive is managed separately. There is an implicit barrier at the end of each parallel construct; only the master thread resumes execution beyond the end of the parallel construct, resuming the task region that was suspended upon encountering it. Any number of parallel constructs can be specified in a single program. 
 
-It is very important to notice that \emph{OpenMP}-compliant implementations are not required to check for data dependencies, data conflicts, race conditions, or deadlocks, any of which may occur in conforming programs. In addition, compliant implementations are not required to check for code sequences that cause a program to be classified as non conforming. Also the developed tool will only accept well written programs, whitout checking if they are \emph{OpenMP}-compliant. The \emph{OpenMP} specification makes also no guarantee that input or output to the same file is synchronous when executed in parallel. In this case, the programmer is responsible for synchronizing input and output statements (or routines) using the provided synchronization constructs or library routines; this assumption is also maintained in the developed tool.
+It is very important to notice that OpenMP-compliant implementations are not required to check for data dependencies, data conflicts, race conditions, or deadlocks, any of which may occur in conforming programs. In addition, compliant implementations are not required to check for code sequences that cause a program to be classified as non conforming. Also the developed tool will only accept well written programs, whitout checking if they are OpenMP-compliant. The OpenMP specification makes also no guarantee that input or output to the same file is synchronous when executed in parallel. In this case, the programmer is responsible for synchronizing input and output statements (or routines) using the provided synchronization constructs or library routines; this assumption is also maintained in the developed tool.
 
-In C/C++, \emph{OpenMP} directives are specified by using the\begin{bf} $\#$pragma\end{bf} mechanism provided by the C and C++ standards.  Almost all directives start with \begin{bf}$\#$pragma omp\end{bf} and have the following grammar:
+In C/C++, OpenMP directives are specified by using the\begin{bf} $\#$pragma\end{bf} mechanism provided by the C and C++ standards.  Almost all directives start with \begin{bf}$\#$pragma omp\end{bf} and have the following grammar:
 \begin{bf}{\center{$\#$pragma omp directive-name [clause[ [,] clause]...] new-line}}\end{bf}
 \\
 
 A directive applies to at most one succeeding statement, which must be a structured block, and may be composed of consecutive $\#$pragma preprocessing directives. 
 
-It is possible to specify for each variable, in an \emph{OpenMP} directive, if it should be private or shared by the threads; this can be done using the clause attribute \emph{shared(variable)} or \emph{private(variable)}.
+It is possible to specify for each variable, in an OpenMP directive, if it should be private or shared by the threads; this can be done using the clause attribute \emph{shared(variable)} or \emph{private(variable)}.
 
-There is a big variety of directives which permit to express almost all computational patterns; for this reason a restricted set has been choosen in this project. \emph{Real-time} applications tend to be composed by a lot of small jobs, with only a small amount of shared variables and a lot of controllers. Given this, the following \emph{OpenMP} directives have been choosen:
+There is a big variety of directives which permit to express almost all computational patterns; for this reason a restricted set has been choosen in this project. Real-time applications tend to be composed by a lot of small jobs, with only a small amount of shared variables and a lot of controllers. Given this, the following OpenMP directives have been choosen:
 \begin{itemize}
 \item{\begin{bf}{$\#$pragma omp parallel}\end{bf} : all the code inside of this block is executed in parallel by all the available threads. Each thread has its own variables scope defined by the appropriate clauses. }
 \item{\begin{bf}{$\#$pragma omp sections}\end{bf} : this pragma opens a block which has to contain section directives; it has always to be contained inside a \begin{bf}$\#$pragma omp parallel block\end{bf} and there is an implicit barrier at the end of this block synchronizing all the \emph{section} blocks which are included. }
@@ -211,17 +220,19 @@ The considered pragma set can be splitted into two groups:
 \item{A second set containing \begin{bf}{$\#$pragma omp section}\end{bf}, \begin{bf}{$\#$pragma omp task}\end{bf} and \begin{bf}{$\#$pragma omp for}\end{bf} which represent “jobs”, since they contain the majority of the computation code.}
 \end{itemize}
 
-\emph{OpenMP} imposes that pragmas belonging to the second group must always be nested inside a control pragma and that no pragmas can be nested inside them. It is still possible to overcome this rule by invoking a function, which contains pragmas, inside one of the pragmas contained in the first group; however to make this approach work it is necessary to set the \emph{OMP\_NESTED} environment variable by invoking the function call \emph{omp\_set\_nested(1)}. Nesting parallelism is allowed by default in the developed tool. 
+OpenMP imposes that pragmas belonging to the second group must always be nested inside a control pragma and that no pragmas can be nested inside them. It is still possible to overcome this rule by invoking a function, which contains pragmas, inside one of the pragmas contained in the first group; however to make this approach work it is necessary to set the \emph{OMP\_NESTED} environment variable by invoking the function call \emph{omp\_set\_nested(1)}. Nesting parallelism is allowed by default in the developed tool. 
 
-With this subset of \emph{OpenMP} it is possible to create all the standard computation patterns like \emph{Farms}, \emph{Maps}, \emph{Stencils} \dots 
+With this subset of OpenMP it is possible to create all the standard computation patterns like \emph{Farms}, \emph{Maps}, \emph{Stencils} \dots 
 
-\emph{OpenMp} synchronization directives as \begin{bf}$\#$pragma omp barrier\end{bf} are not supported for now; only the synchronization semantic given by the above directives is ensured. 
+OpenMP synchronization directives as \begin{bf}$\#$pragma omp barrier\end{bf} are not supported for now; only the synchronization semantic given by the above directives is ensured. 
 
 \begin{figure}[H]
 \centering
 \includegraphics[scale=0.8]{omp.pdf}
 \caption{OpenMP directives nested structure.}
 \end{figure}
+
+An extention of OpenMP with new directives to support asynchronous parallelism has devoleped at the Barcelona supercomputing center (BSC) which is called OMPSS \cite{ompss}. Asynchronous parallelism is enabled in OmpSs by the use data-dependencies between the different tasks of the program. The OpenMP task construct is extended with the \emph{in} (standing for input), \emph{out} (standing for output) and \emph{inout} (standing for input/output) clauses to this end. They allow to specify for each task in the program what data a task is waiting for and signaling is readiness. OMPSS can also be understood as new directives extending other accelerator based APIs like CUDA or OpenCL. OMPSS has not been chosen since it is not compatible with Clang.
 
 \section{Clang as LLVM frontend}
 
@@ -344,14 +355,14 @@ For what concerns the support to generic pragmas the only remarkable work, that 
 \chapter{Design}
 \section{The framework}
 
-The framework takes as input a C++ source code annotated with \emph{OpenMP} and translates each pragma block in a task. After that the tool searches for the best possible schedule which satisfies the tasks timing contrains. The source code is then executed with the given schedule and the help of a newly produced run-time support.
+The framework takes as input a C++ source code annotated with OpenMP and translates each pragma block in a task. After that the tool searches for the best possible schedule which satisfies the tasks timing contrains. The source code is then executed with the given schedule and the help of a newly produced run-time support.
 
 The developed tool works accordingly to the following steps:
 \begin{itemize}
-\item{the \emph{AST}, Abstract Sintax Tree, of the source code is created using \emph{Clang}. From this all the relevant information of each \emph{OpenMP} pragma are extracted and inserted in a properly formatted \emph{XML} file.}
+\item{the \emph{AST}, Abstract Sintax Tree, of the source code is created using Clang. From this all the relevant information of each OpenMP pragma are extracted and inserted in a properly formatted XML file.}
 \item{Each pragma in the source code is substituted with a proper profiling function call. The execution of the new code produces a log file which includes, for each pragma, timing informations.  }
-\item{The new source code and the pragma \emph{XML} file are given as imput to a second tool written in \emph{Python}. This tool parses the \emph{XML} file and creates a graph which represents the parallel execution flow of the tasks. After that it executes the given profiled source code $N$ times creating statistics of the execution. The graph, enhanced with the new profiling information, is saved as a new \emph{XML} file}
-\item{ A scheduling algorithm is run on the created graph to find the best possible scheduling sequence, accordingly to the profiling information. The found scheduling is then checked to be compatible with the precedence contraints given by the \emph{OpenMP} standard and, in case, a \emph{XML} schedule file is created.}
+\item{The new source code and the pragma XML file are given as imput to a second tool written in \emph{Python}. This tool parses the XML file and creates a graph which represents the parallel execution flow of the tasks. After that it executes the given profiled source code $N$ times creating statistics of the execution. The graph, enhanced with the new profiling information, is saved as a new XML file}
+\item{ A scheduling algorithm is run on the created graph to find the best possible scheduling sequence, accordingly to the profiling information. The found scheduling is then checked to be compatible with the precedence contraints given by the OpenMP standard and, in case, a XML schedule file is created.}
 \item{ The source code is rewritten substituting to each pragma a proper code block for the creation of the tasks. During the execution each task is passed to the run-time support which allocates it accordingly to the previously creted schedule.}
 \end{itemize}
 
@@ -367,10 +378,10 @@ Picture \ref{framework} gives a visual representation of the framwork.
 
 \section{A simple example}
 \label{example}
-A simple example has been developed in order to show how the tool works in each step. Given the \emph{OpenMP} semantic described before, the two \begin{bf}$\#$pragma omp section\end{bf} are executing in parallel and synchronize at the end of the \begin{bf}$\#$pragma omp parallel\end{bf}. The clause \emph{private(bar)} makes the \emph{bar} variable private to each thread in order to have no race condition. To execute the example with some timing constrains some code has been added inside of the for loop which is not relevant for the explaination purpose.
+A simple example has been developed in order to show how the tool works in each step. Given the OpenMP semantic described before, the two \begin{bf}$\#$pragma omp section\end{bf} are executing in parallel and synchronize at the end of the \begin{bf}$\#$pragma omp parallel\end{bf}. The clause \emph{private(bar)} makes the \emph{bar} variable private to each thread in order to have no race condition. To execute the example with some timing constrains some code has been added inside of the for loop which is not relevant for the explaination purpose.
 
-\lstset{language=CCC}
-\begin{lstlisting}[caption=Sample code, label=code]
+%\lstset{language=CCC}
+\begin{lstlisting}[language=CCC, caption=Sample code, label=code]
 #include <omp.h>
 
 int work(int bar){
@@ -409,7 +420,7 @@ int main(int argc, char* argv[]) {
 
 \section{Analysis}
 \subsection{Code}
-
+\label{patch}
 Chapter presents and justifies the choices that have been made during the parsing of the input source code; in particular which features have been extracted and why.
 
 First of all it will be shown how OpenMP pragmas are translated in the Clang’s AST. The framework targets only a small part of the OpenMP environments, in particular only \emph{parallel}, \emph{sections} (\emph{single}), \emph{section} (\emph{task}) and \emph{for} pragmas. These pragmas have the common property that they are all transformed into \emph{Stmt} nodes in the AST. Each of these pragmas is represented in the AST by a specific class: \emph{OMPParallelDirecetive}, \emph{OMPSectionsDirective} and so on. All these classes inherit from the \emph{OMPExecutableDirective} class which in turn derives from the \emph{Stmt} class. 
@@ -585,11 +596,11 @@ Depending on the specific pragma, special classes are derived like \emph{For\_No
 
 To create the first graph the tool starts parsing the XML file and creating a proper object for each encountered pragma. It is important to notice that also pragmas which are not actually executed will be inserted in the graphs. 
 
-The second graph is created taking care of the execution semantic given by \emph{OpenMP}. Again the XML file is parsed and an object is created for each pragma. Each object is then connected with the proper ones and if necessary fake \emph{Barrier} nodes are added to guarantee the synchronization given by the standard. This special nodes are added whenever a "control" pragma is encountered; this is due to the fact that this type of pragmas use to have more than one children, creating a sort of diamond topology, which have to synchronize at the end of the pragma block, figure~\ref{call_graph}.
+The second graph is created taking care of the execution semantic given by OpenMP. Again the XML file is parsed and an object is created for each pragma. Each object is then connected with the proper ones and if necessary fake \emph{Barrier} nodes are added to guarantee the synchronization given by the standard. This special nodes are added whenever a "control" pragma is encountered; this is due to the fact that this type of pragmas use to have more than one children, creating a sort of diamond topology, which have to synchronize at the end of the pragma block, figure~\ref{call_graph}.
 
 \section{Visual graph generation}
 
-To visualize the code structure, parallel code execution and the function call graph, three different types of graph have been generated, each containing a series of nodes which are connected through undirected edges. The first node of each graph displays the function name along with the total computation time. For each function in the source code a different graph is created in two different formats; for visualization a \emph{PDF} file, while a \emph{DOT} file is created for manipulation purpouses. The code structure graph, simply called \emph{code graph}, shows how pragmas are nested inside each other. Each node displays relevant informations as pragma type, starting line, execution time and variance. The parallel code execution graph, called \emph{flow graph}, shows which nodes can be executed in parallel; some simple rules apply in this case to understand the execution flow:
+To visualize the code structure, parallel code execution and the function call graph, three different types of graph have been generated, each containing a series of nodes which are connected through undirected edges. The first node of each graph displays the function name along with the total computation time. For each function in the source code a different graph is created in two different formats; for visualization a PDF file, while a DOT file is created for manipulation purpouses. The code structure graph, simply called \emph{code graph}, shows how pragmas are nested inside each other. Each node displays relevant informations as pragma type, starting line, execution time and variance. The parallel code execution graph, called \emph{flow graph}, shows which nodes can be executed in parallel; some simple rules apply in this case to understand the execution flow:
 \begin{itemize}
 \item{a node can execute only after all the parents have completed.}
 \item{All nodes which have a single parent in common can execute in parallel (this is shown by having the same color for edges which can execute in parallel).}
@@ -1367,7 +1378,8 @@ When all the tasks have been executed and the program terminates, the \emph{Thre
 
 
 \chapter{Performance evaluation}
-\section{A Computer vision application}
+\section{A computer vision application}
+
 Computer vision is a field that includes methods for acquiring, processing, analyzing, and understanding images and, in general, high-dimensional data from the real world in order to produce numerical or symbolic information, in the forms of decisions. Applications range from tasks such as industrial machine vision systems which, say, inspect bottles speeding on a production line, to research into artificial intelligence and computers or robots that can comprehend the world around them. This applications usually consists of a series of different tasks which work on single image. Some basic operations used in this field are:
 \begin{itemize}
 \item{basic image processing; this consists of any form of signal processing for which the input is an image, such as a photograph or video frame and the output may be either an image or a set of characteristics or parameters related to the image.}
@@ -1377,7 +1389,60 @@ Computer vision is a field that includes methods for acquiring, processing, anal
 \item{Homographies which are an isomorphism of projective spaces, induced by an isomorphism of the vector spaces from which they are derived.}
 \end{itemize}
 
-A widely used operation sequence consists in aquiring an image, filtering out all the irrelevant details, extracting some features, match the features against a predefined object and then build a homography matrix in order to obtain the position of the object in the image. In general computer vision operations can work on single pixels, blocks of pixels or entire images; depending on this it is possible to apply task parallelism or data parallelism. \emph{Map-reduce} and \emph{Pipelines} are farly common in this sector given that often a stream of images is processed by applying different filters in sequence, using a \emph{Pipeline}; each filter is parallelized dividing the image in chuncks which are processed by different computing units and then reassembled to form the final image, \emph{Map-reduce}.\section{A computer vision application}
+A widely used operation sequence consists in aquiring an image, filtering out all the irrelevant details, extracting some features, match the features against a predefined object and then build a homography matrix in order to obtain the position of the object in the image. In general computer vision operations can work on single pixels, blocks of pixels or entire images; depending on this it is possible to apply task parallelism or data parallelism. \emph{Map-reduce} and \emph{Pipelines} are farly common in this sector given that often a stream of images is processed by applying different filters in sequence, using a \emph{Pipeline}; each filter is parallelized dividing the image in chuncks which are processed by different computing units and then reassembled to form the final image, \emph{Map-reduce}.
+
+The test application consists of a face recognition algorithm in opencv (\cite{opencv}\cite{openbook}) that analyzes two videos which reseamble the stereoscopic view of a person. The application tryes to recognize each face in each video frame and then prints a circle in the frame to locate it. The test videos have been produced in three different formats: 480p, 720p and 1080p; in each video two different people move around in a closed environment.  Algorithm~\ref{testcode} shows the general structure of the test code.
+
+\begin{algorithm}
+\begin{algorithmic}
+
+\Function{face\_recognition}{video\_sx, video\_dx, num\_frame}
+\State capture\_sx = \Call{open}{video\_sx}
+\State capture\_dx = \Call{open}{video\_dx}
+\State frame\_list = []
+\While{ True}
+\For{i $\in$  num\_frame}
+\State frame\_list.\Call{add}{capture\_sx}
+\If{frame\_list is empty }
+\State Break
+\EndIf
+\State \Call{sx}{frame\_list,  num\_frame}
+\EndFor
+\EndWhile
+\While{True}
+\For{i $\in$  num\_frame}
+\State frame\_list.\Call{add}{capture\_dx}
+\If{frame\_list is empty }
+\State Break
+\EndIf
+\State \Call{dx}{frame\_list}
+\EndFor
+\EndWhile
+\EndFunction
+\end{algorithmic}
+\caption{Pseudocode of the example application }
+\label{testcode}
+\begin{algorithmic}
+\Function{sx}{frame\_list,  num\_frame}
+\For{j $\in$ frames}
+\State \Call{detect\_face}{frame\_list[j]}
+\EndFor
+\EndFunction
+\end{algorithmic}
+
+\end{algorithm}
+
+The sequential execution consists of two sequential blocks, one for the left eye and one for the right, which read $N$ frames, given as input, and then pass them to the recognition function. The function searches the frame for all possible faces by extracting some features and then produces a new frame with the annotated positions.
+
+In the parallel execution the two videos are analyzed in parallel and each recognition function works in parallel on the $N$ frames which it recives as input. The first level of parallelism is achived using a \emph{$\#$omp parallel}, \emph{$\#$omp sections}, \emph{$\#$omp section} sequence, while the second level uses a \emph{$\#$omp parallel for}. It is possible to nest a \emph{$\#$omp parallel for }inside a \emph{$\#$omp parallel} as described in section \ref{openmp}.
+The parallel execution graph is shown in \ref{teststructure}. 
+
+\begin{figure}[H]
+\centering
+\includegraphics[scale=0.3]{functiongraphs.pdf}
+\caption{Test structure.}
+\label{teststructure}
+\end{figure}
 
 \section{Results with statistics}
 
@@ -1393,9 +1458,9 @@ An interestin evolution would consist in adding a feature for specifying periodi
 #pragma omp parallel for
 for(...) {
 	...
-	work(); \\executes the periodictask
-	wait(time); \\waits until the next activation time
-	if(!continue) { \\checks the termination condition
+	work(); //executes the periodictask
+	wait(time); //waits until the next activation time
+	if(!continue) { //checks the termination condition
 		break;
 	}
 	...
@@ -1407,13 +1472,22 @@ The schedule algorithm could also be improved with better heuristics in order to
 
 The profiling step could extract more informations of the working platform to enhance the scheduling sequence and could check automatically different inputs to obtain the best results.
 
+As done in \cite{ompss} could be possible to exetend the framework with the capability to support asynchronous parallelism and heterogeneity (devices like GPUs). Paragraph \ref{patch} shows that it is already feasible to patch Clang to support new OpenMP clauses; to address GPUs the code has to be rewritten using CUDA or OpenCL directives.
+
 \begin{thebibliography}{30}
+\bibitem{bbw2} G. Buttazzo, E. Bini, Y. Wu. \emph{Partitioning real-time applications over multi-core reservations}. Scuola Superiore Sant’Anna, Pisa, Italy, 2009
+\bibitem{real1}J. Anderson, J. Calandrino, U. Devi. \emph{Real-time scheduling on multicore platforms.} Real-Time and Embedded Technology and Applications Symposium, 2006. Proceedings of the 12th IEEE. IEEE, 2006.
+APA	
+\bibitem{real2}B. Brandenburg, J. Calandrino,  J. Anderson. \emph{On the scalability of real-time scheduling algorithms on multicore platforms: A case study.} Real-Time Systems Symposium, 2008. IEEE, 2008.
 \bibitem{tbb} C. Pheatt. \emph{Intel® threading building blocks.} Journal of Computing Sciences in Colleges 23.4, 2008.
 \bibitem{ppl} D. Leijen, S. Wolfram, S. Burckhardt. \emph{The design of a task parallel library.} Acm Sigplan Notices. Vol. 44. No. 10. ACM, 2009.
 \bibitem{boost} D. Abrahams, A. Gurtovoy. \emph{C++ template metaprogramming: concepts, tools, and techniques from Boost and beyond.} Pearson Education, 2004.
 \bibitem{openmp} L. Dagum, R. Menon. \emph{OpenMP: an industry standard API for shared-memory programming.} Computational Science \& Engineering, IEEE 5.1, 1998.
 \bibitem{icc} X. Tian, et al. \emph{Intel® OpenMP C++/Fortran Compiler for Hyper-Threading Technology: Implementation and Performance.} Intel Technology Journal 6.1, 2002.
 \bibitem{parallware} http://www.appentra.com/appentra/parallware-auto-parallelizer-source-to-source-compiler/
+\bibitem{realtimeopenmp}K. Lakshmanan, S. Kato , R. Rajkumar. \emph{Scheduling parallel real-time tasks on multi-core processors.}Real-Time Systems Symposium (RTSS), 2010 IEEE 31st. IEEE, 2010.
+\bibitem{benini}A. Marongiu, L. Benini. \emph{Efficient OpenMP support and extensions for MPSoCs with explicitly managed memory hierarchy.} Proceedings of the conference on Design, automation and test in Europe. European Design and Automation Association, 2009.
+\bibitem{ompss} A. Duran, et al. \emph{Ompss: a proposal for programming heterogeneous multi-core architectures.} Parallel Processing Letters 21.02, 2011
 \bibitem{clang}http://clang.llvm.org/
 \bibitem{llvm1} C. Lattner. \emph{LLVM: An infrastructure for multi-stage optimization}. Master Thesis, University of Illinois at Urbana-Champaign, 2002.
 \bibitem{llvm2} C. Lattner, V. Adve. \emph{LLVM: A compilation framework for lifelong program analysis \& transformation}. International Symposium on Code Generation and Optimization, 2004. 
@@ -1422,10 +1496,12 @@ The profiling step could extract more informations of the working platform to en
 \bibitem{mercurium} J. Balart, et al. \emph{Nanos mercurium: a research compiler for openmp.} Proceedings of the European Workshop on OpenMP. Vol. 8. 2004.
 \bibitem{intelomprtl}https://www.openmprtl.org/
 \bibitem{clomp}https://github.com/motonacciu/clomp/
-\bibitem{bbw2} G. Buttazzo, E. Bini, Y. Wu. \emph{Partitioning real-time applications over multi-core reservations}. Scuola Superiore Sant’Anna, Pisa, Italy, 2009
 \bibitem{zvtm}http://zvtm.sourceforge.net/zgrviewer.html
 \bibitem{mfp} Ricardo Garibay-Martinez, Luis Lino Ferreira and Luis Miguel Pinho, \emph{A Framework for the Development of Parallel and Distributed Real-Time Embedded Systems}
 \bibitem{pop}Antoniu Pop (1998). \emph{OpenMP and Work-Streaming Compilation in GCC}. 3 April 2011, Chamonix, France
+\bibitem{opencv}http://opencv.org
+\bibitem{openbook}G. Bradski, A. Kaehler. \emph{Learning OpenCV: Computer vision with the OpenCV library}. O'reilly, 2008.
+
 \end{thebibliography}
 
 \end{document}
