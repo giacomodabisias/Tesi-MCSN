@@ -123,6 +123,8 @@ The aim of this thesis is to create a framework for guaranteeing \emph{real-time
 
 \section{Chapter's structure}
 
+The thesis is organized as follows. Section I presents the motivations and context of the system, the terminology and all the necessary background concepts as OpenMp and Clang. Section II describes the overall framework structure along with a simple example to illustrate its execution flow. Section III illustrates how all the steps of Section II have been implemented using pseudocode to show the most relevant algorithms. Section VI includes tests and results of the framework on a computer vision application. Section V discusses the final results and some possible further extension for a future work.
+
 \mainmatter
 \chapter{Introduction}
 
@@ -1446,8 +1448,13 @@ The parallel execution graph is shown in \ref{teststructure}.
 
 \section{Results with statistics}
 
+
+
 \chapter{Conclusions}
 \section{Achieved results}
+
+
+
 \section{Future development}
 
 The main future development step consists in the substitution of the OpenMP pragma directives with new self created pragmas in order to add new functionalities and simplify the framework. It could be possible, in principle, to add informations about deadlines, arrival times, schedule policies, \dots inside the directives. 
