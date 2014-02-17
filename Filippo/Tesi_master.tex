@@ -1446,6 +1446,28 @@ The parallel execution graph is shown in \ref{teststructure}.
 
 \section{Results with statistics}
 
+\begin{table}
+\begin{center}
+\begin{tabular}{| l || c || c | c || c | c |} 
+\hline
+ & \multicolumn{1}{|c||}{Sequential} & \multicolumn{2}{|c||}{OpenMP} & \multicolumn{2}{|c|}{Soma} \\
+\cline{2-6}
+  & $T_{seq}[s]$ & $T_c(6)[s]$ & $\epsilon (6) = \frac{T_{seq}}{6T_c(6)}$ & $T_c(6)[s]$ & $\epsilon (6) = \frac{T_{seq}}{6T_c(6)}$ \\
+\cline{2-6}
+\hline
+480p & 750 & 133 & 0.94 & 134 & 0.93 \\
+\hline
+720p & 3525 & 627 & 0.94 & 629 & 0.93 \\
+\hline
+1080p & 8645 & 1536 & 0.94 & 1539 & 0.94 \\
+\hline 
+\end{tabular}
+\caption{Completition time of the programs at the variation of the video quality.}
+\label{times}
+\end{center}
+\end{table}
+
+
 \chapter{Conclusions}
 \section{Achieved results}
 \section{Future development}
@@ -1473,6 +1495,7 @@ The schedule algorithm could also be improved with better heuristics in order to
 The profiling step could extract more informations of the working platform to enhance the scheduling sequence and could check automatically different inputs to obtain the best results.
 
 As done in \cite{ompss} could be possible to exetend the framework with the capability to support asynchronous parallelism and heterogeneity (devices like GPUs). Paragraph \ref{patch} shows that it is already feasible to patch Clang to support new OpenMP clauses; to address GPUs the code has to be rewritten using CUDA or OpenCL directives.
+
 
 \begin{thebibliography}{30}
 \bibitem{bbw2} G. Buttazzo, E. Bini, Y. Wu. \emph{Partitioning real-time applications over multi-core reservations}. Scuola Superiore Sant’Anna, Pisa, Italy, 2009
