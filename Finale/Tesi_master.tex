@@ -1381,6 +1381,7 @@ When all the tasks have been executed and the program terminates, the \emph{Thre
 
 \chapter{Performance evaluation}
 \section{A computer vision application}
+\label{test}
 
 Computer vision is a field that includes methods for acquiring, processing, analyzing, and understanding images and, in general, high-dimensional data from the real world in order to produce numerical or symbolic information, in the forms of decisions. Applications range from tasks such as industrial machine vision systems which, say, inspect bottles speeding on a production line, to research into artificial intelligence and computers or robots that can comprehend the world around them. This applications usually consists of a series of different tasks which work on single image. Some basic operations used in this field are:
 \begin{itemize}
@@ -1453,13 +1454,23 @@ The parallel execution graph is shown in \ref{teststructure}.
 \chapter{Conclusions}
 \section{Achieved results}
 
+\section{Known issues}
 
+There are some known bugs that are still to be fixed, but do not effect drastically the framework usability. 
+
+If two jobs invoke concurrently the same function, containing pragmas, the execution can deadlock. This is due to two main reasons, one related with the scheduler and one with the run-time support. For what concerns the scheduler, there is a problem in the identification of the pragma caller, while in the run-time support there is a problem if the called pragmas are scheduled on the same thread of one of the control pragmas. 
+
+If the pragma structure is too complex there are too many concurrent control jobs which saturate the thread pool, preventing the working tasks' execution. The solution explained in paragraph~\ref{runtime} solves this problem only for limited nesting as in the test program in paragraph~\ref{test}.
+
+There is another case in which the execution deadlocks; this is caused when the schedueler schedules tasks belonging to different branches in a crossed manner. This could be solved by adding constraints in the scheduler, but it has not been implemented since it requires to limit the general feasible pragmas structure. 
+
+The OpenMP semantic is characterized by the use of many control pragmas; this rises the overall number of tasks that have to be scheduled, increasing the complexity of the solution. Usually control tasks require just a small computation time, so that in principle it could be possible to avoid to schedule them. 
 
 \section{Future development}
 
 The main future development step consists in the substitution of the OpenMP pragma directives with new self created pragmas in order to add new functionalities and simplify the framework. It could be possible, in principle, to add informations about deadlines, arrival times, schedule policies, \dots inside the directives. 
 
-An interestin evolution would consist in adding a feature for specifying periodic task structures, which consist of a periodic activation time and deadline, directly in the pragma directives, either with or withou OpenMP. This is due to the fact that almost all \emph{real-time} programs consist of a majority of periodic tasks with some \emph{sporadic} tasks. The actual developed tool is already capable of executing periodic tasks, Code~\ref{periodictask}, by using an infinite for cycle with a timing control sequence nested inside which permits continuation or abortion.
+An interestin evolution would consist in adding a feature for specifying periodic task structures, which consist of a periodic activation time and deadline, directly in the pragma directives, either with or without OpenMP. This is due to the fact that almost all \emph{real-time} programs consist of a majority of periodic tasks with some \emph{sporadic} tasks. The actual developed tool is already capable of executing periodic tasks, Code~\ref{periodictask}, by using an infinite for cycle with a timing control sequence nested inside which permits continuation or abortion.
 
 \begin{lstlisting}[language=CCC, caption=Example of a periodic task., label=periodictask]
 #pragma omp parallel for
