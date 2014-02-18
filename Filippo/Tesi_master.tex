@@ -1467,6 +1467,92 @@ The parallel execution graph is shown in \ref{teststructure}.
 \end{center}
 \end{table}
 
+\begin{table}
+\begin{center}
+\begin{tabular}{| l || c | c || c | c || c | c |} 
+\hline
+  Thread & \multicolumn{2}{|c||}{Sequential} & \multicolumn{2}{|c||}{OpenMP} & \multicolumn{2}{|c|}{Soma} \\
+\cline{2-7}
+& mean & variance & mean & variance & mean & variance \\
+\cline{2-7}
+\hline
+0 & 0.2823 & 0.1984 & 0.3034 & 0.0016 & 0.3065 & 0.0006  \\
+\hline
+1 & - & - & 0.3034 & 0.0017 & 0.3065 & 0.0005 \\
+\hline
+2 & - & - & 0.3034 & 0.0016 & 0.3065 & 0.0006 \\
+\hline 
+3 & - & - & 0.3041 & 0.0016 & 0.2981 & 0.0005 \\
+\hline
+4 & - & - & 0.3041 & 0.0016 & 0.2981 & 0.0006 \\
+\hline
+5 & - & - & 0.3041 & 0.0017 & 0.2981 &  0.0006       \\
+\hline
+\end{tabular}
+\caption{Service time of each thread (gap between the delivery of a parsed image). Video quality 480p}
+\label{times}
+\end{center}
+\end{table}
+
+
+\begin{table}
+\begin{center}
+\begin{tabular}{| l || c | c || c | c || c | c |} 
+\hline
+  Thread & \multicolumn{2}{|c||}{Sequential} & \multicolumn{2}{|c||}{OpenMP} & \multicolumn{2}{|c|}{Soma} \\
+\cline{2-7}
+& mean & variance & mean & variance & mean & variance \\
+\cline{2-7}
+\hline
+0 & 1.3263 & 0.1968 & 1.4226 & 0.0092 & 3.4987 & 0.0210  \\
+\hline
+1 & - & - & 1.4225 & 0.0090 & 1.4297 & 0.0065 \\
+\hline
+2 & - & - & 1.4225 & 0.0098 & 1.4298 & 0.0065 \\
+\hline 
+3 & - & - & 1.4257 & 0.0125 & 1.4117 & 0.0067 \\
+\hline
+4 & - & - & 1.4256 & 0.0129 & 1.4111 & 0.0060 \\
+\hline
+5 & - & - & 1.4256 & 0.0129 & 1.4117 & 0.0060  \\
+\hline
+\end{tabular}
+\caption{Service time of each thread (gap between the delivery of a parsed image). Video quality 720p}
+\label{times}
+\end{center}
+\end{table}
+
+
+\begin{table}
+\begin{center}
+\begin{tabular}{| l || c | c || c | c || c | c |} 
+\hline
+  Thread & \multicolumn{2}{|c||}{Sequential} & \multicolumn{2}{|c||}{OpenMP} & \multicolumn{2}{|c|}{Soma} \\
+\cline{2-7}
+& mean & variance & mean & variance & mean & variance \\
+\cline{2-7}
+\hline
+0 & 3.2524 & 0.1567 & 3.4900 & 0.0164 & 3.4987 & 0.0210  \\
+\hline
+1 & - & - & 3.4900 & 0.0159 & 3.4986 & 0.0208 \\
+\hline
+2 & - & - & 3.4901 & 0.0176 & 3.4990 & 0.0199 \\
+\hline 
+3 & - & - & 3.4909 & 0.0302 & 3.4976 & 0.0182 \\
+\hline
+4 & - & - & 3.4911 & 0.0313 & 3.4982 & 0.0185 \\
+\hline
+5 & - & - & 3.4914 & 0.0316 & 3.4976 & 0.0199  \\
+\hline
+\end{tabular}
+\caption{Service time of each thread (gap between the delivery of a parsed image). Video quality 1080p}
+\label{times}
+\end{center}
+\end{table}
+
+
+
+
 
 \chapter{Conclusions}
 \section{Achieved results}
