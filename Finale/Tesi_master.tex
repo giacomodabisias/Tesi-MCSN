@@ -263,22 +263,18 @@ Clang’s AST is fully type resolved and this is afforded using the \emph{Type} 
 
 Lastly there is the \emph{Stmt} type which refereres to the control flow (\emph{IfStmt}) and loop block of code (\emph{ForStmt}, \emph{WhileStmt}), expressions (\emph{Expr}), return commands (\emph{ReturnStmt}), scopes (\emph{CompoundStmt}), etc
 
-Together with the above mentioned three types, there are other “glue” classes that allow to complete the semantic. The most remarkable ones are: the \emph{TemplateArgument} class, that, as the name suggests, allows to handle the template semantic and the \emph{DeclContex} class which is used to extend \emph{Decl} semantic and will be explained later. 
-
-To built the tree the nodes are connected to each other; in particular a node has references to its children. For example a \emph{ForStmt} would have a pointer to the \emph{CompoundStmt} containing its body, as well as to the \emph{Expr} containing the condition and the \emph{Stmt} containing the initialization. A special case is the \emph{Decl} class which is designed not to have children and thus can only be a leaf in the AST. There are cases in which a \emph{Decl} node is needed to have children, like for example a \emph{FunctionDecl} which has to refer to the \emph{CompoundStmt} node containing its body or to the list of its parameters (\emph{ParmVarDecl}). The \emph{DeclContext} class has been designed to solve this issue; when a \emph{Decl} node needs to have children it can just extend the \emph{DeclContext} class and it will be provided with the rights to points to other nodes. 
-
 \begin{figure}[H]
 \centering
 \includegraphics[scale=0.6]{clang_classes.pdf}
 \caption{Clang class hierarchy.}
 \end{figure}
 
+Together with the above mentioned three types, there are other “glue” classes that allow to complete the semantic. The most remarkable ones are: the \emph{TemplateArgument} class, that, as the name suggests, allows to handle the template semantic and the \emph{DeclContex} class which is used to extend \emph{Decl} semantic and will be explained later. 
+
+To built the tree the nodes are connected to each other; in particular a node has references to its children. For example a \emph{ForStmt} would have a pointer to the \emph{CompoundStmt} containing its body, as well as to the \emph{Expr} containing the condition and the \emph{Stmt} containing the initialization. A special case is the \emph{Decl} class which is designed not to have children and thus can only be a leaf in the AST. There are cases in which a \emph{Decl} node is needed to have children, like for example a \emph{FunctionDecl} which has to refer to the \emph{CompoundStmt} node containing its body or to the list of its parameters (\emph{ParmVarDecl}). The \emph{DeclContext} class has been designed to solve this issue; when a \emph{Decl} node needs to have children it can just extend the \emph{DeclContext} class and it will be provided with the rights to points to other nodes. 
+
 There are two other classes that are worth mentioning: \emph{SourceLocation} and \emph{SourceManager} class. The \emph{SourceLocation} class allows to map a node to the source code. The \emph{SourceManager} instead provides the methods to calculate the location of each node. These classes are very powerful as they allow to retrieve both the start and the end position of a node in the code, giving the exact line and column number. For example given a \emph{ForStmt}, the \emph{SourceManager} is able to provide the line number of where the stmt starts and ends, but also the column number where the loop variable is declared or where the increment is defined.
 
-To traverse the AST, Clang provides the \emph{RecursiveASTVisitor} class. This is a very powerful and quite easy to learn interface that allows the programmer to visit all the AST’s nodes. The user can customize this interface in such a way that it will trigger only on nodes he is interested in; for example the methods \emph{VisitStmt()} or \emph{VisitFunctionDecl()} are called each time a node of that type is encountered. Each AST node class contains "getter" methods to extract informations out of the code. For example a \emph{Stmt} class has a method to know what kind of \emph{Stmt} the node is, as \emph{IfStmt}, \emph{Expr}, \emph{ForStmt}, \dots. In turn \emph{ForStmt} class provides methods to find the name of the looping variable, the initialization value and the looping condition.
-
-To better understand how the Clang’s AST is structured, Code~\ref{astexemple} and~\ref{ast} contain a simple dummy code and the associated AST.
-\newline
 \begin{lstlisting}[language=CCC, caption=Simple code., label=astexemple]
 class A {
 public:
@@ -296,7 +292,11 @@ int main() {
 	a.set_x(val);
 }
 \end{lstlisting}
-\newpage
+
+To traverse the AST, Clang provides the \emph{RecursiveASTVisitor} class. This is a very powerful and quite easy to learn interface that allows the programmer to visit all the AST’s nodes. The user can customize this interface in such a way that it will trigger only on nodes he is interested in; for example the methods \emph{VisitStmt()} or \emph{VisitFunctionDecl()} are called each time a node of that type is encountered. Each AST node class contains "getter" methods to extract informations out of the code. For example a \emph{Stmt} class has a method to know what kind of \emph{Stmt} the node is, as \emph{IfStmt}, \emph{Expr}, \emph{ForStmt}, \dots. In turn \emph{ForStmt} class provides methods to find the name of the looping variable, the initialization value and the looping condition.
+
+To better understand how the Clang’s AST is structured, Code~\ref{astexemple} and~\ref{ast} contain a simple dummy code and the associated AST.
+
 \begin{lstlisting}[language=AST, caption=Clang AST of the simple code., label=ast]
 TranslationUnitDecl
 |-CXXRecordDecl <clang_ast_test.cpp:2:1, line:13:1> class A
@@ -368,7 +368,7 @@ Picture \ref{framework} gives a visual representation of the framwork; boxes rep
 
 \begin{figure}[H]
 \centering
-\includegraphics[scale=0.43]{tgraph.pdf}
+\includegraphics[scale=0.40]{tgraph.pdf}
 \caption{The famework structure}
 \label{framework}
 \end{figure}
@@ -739,7 +739,7 @@ The new data is added to the \emph{flow graph} previously produced~\ref{xmlpragm
 
 The problem of finding the best possible schedule on a multicore architecture is known to be a \emph{NP} hard problem. Given $N$ tasks and $M$ computing cores, the problem consists of creating $K$, possibly lower than $M$, execution flows in order to assign each task to a single flow. Each flow represents a computing core onto which the task should be run. To find a good solution a recursive algorithm has been developed which, by taking advantage of a search tree, figure~\ref{search_tree}, tries to explore all possible solutions, pruning "bad" brenches as soon as possible. Often the algorithm could not finish in a reasonable time due to the big number of possible solutions; to solve this problem a timer has been added to stop the computation after a certain amount of time given as input. \\
 
-\begin{figure}[H]
+\begin{figure}
 \centering
 \includegraphics[width = 130mm, height = 76mm]{search_tree.png}
 \caption{Search tree.}
@@ -798,7 +798,7 @@ This approach does not change the structure of the code, in particular nested pr
 
 This chapter will present how the run-time support for the execution of the final program has been designed. The aim of the run-time is to instantiate and manage the threads and to control the execution of the tasks. In particular it must allocate each task on the correct thread and must grant the precedence constraints between tasks. The run-time must have a very low execution overhead in order to satisfy all the tasks' timing constraints. For this reason the run-time does no time consuming computations and all its allocation decisions are made based on what is written in the schedule. All the heavy calculations, to decide the tasks allocation, has been already done by the schedule algorithm before the program execution and the produced schedule is taken as input by the program. 
 
-\begin{figure}[H]
+\begin{figure}
 \centering
 \includegraphics[scale=0.6]{runtime_execution.pdf}
 \caption{Flow execution of the runtime support.}
@@ -1268,12 +1268,10 @@ int main(int argc, char* argv[]) {
             Nested(int pragma_id, int & bar) : 
                 NestedBase(pragma_id), bar_(bar) {}
             int & bar_;
-            
             void fx(ForParameter for_param, int & bar){
               //#pragma omp section
               {
                 class Nested : public NestedBase {
-  ...
   ...
 \end{lstlisting}
 
@@ -1303,12 +1301,9 @@ In OpenMP a \emph{barrier} pragma is used to notifies the run-time that some thr
 The run-time support for the final parallel execution is composed of two classes: \emph{NestedBase} and \emph{ThreadPool}. \emph{NestedBase} is the virtual class from which every \emph{Nested} class derives; it just stores the identifier (line number) of the corresponding pragma, \emph{int pragma\_id\_}, and a list of tasks, \emph{queue$<$shared\_ptr$<$NestedBase$>>$ todo\_job\_}. This common interface is necessary to handle each task because each \emph{Nested} class, corresponding to a task, exists only inside its scope and it is not usable outside.   
 
 \emph{ThreadPool} is the class that implements the real-time support and it declares two structures: \emph{ScheduleOptions} and \emph{JobIn}. \emph{ThreadPool} has been implemented as a singleton class; the reasons which motivated this choice are the same as the ones shown in paragraph~\ref{profilerun}, for the \emph{ProfileTrackerLog} class. There is no need to protect the instantiation of the class with mutexes given that it is the constructor of this class that instantiates the threads pool.
-
 \emph{ThreadPool}’s constructor parses the input XML schedule file exctracting all the relevant informations. The first tag of the file contains the number of threads to be instantiated; this number is passed to the \emph{init()} function which creates a thread object and pushes it into the thread queue.
-
 \begin{lstlisting}[language=CCC, caption=Initialization of the thread pool., label=pool]
 vector<thread> threads_pool_;
-
 threads_pool_.reserve(pool_size);
 for(int i = 0; i < pool_size; i++) {
     threads_pool_.push_back(thread(&ThreadPool::run,this, i));
@@ -1679,42 +1674,42 @@ The following graphs compare the jitter and time difference between the single c
 
 \begin{figure}[H]
 \centering
-\includegraphics[scale=0.3]{omp_480_range_010.png}
+\includegraphics[scale=0.27]{omp_480_range_010.png}
 \caption{Service time of each core in a 0-10s interval at 480p (OpenMP).}
 \label{omp480jitter}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[scale=0.3]{soma_480_range_010.png}
+\includegraphics[scale=0.27]{soma_480_range_010.png}
 \caption{Service time of each core in a 0-10s interval at 480p (Soma).}
 \label{soma480jitter}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[scale=0.3]{omp_720_range_050.png}
+\includegraphics[scale=0.27]{omp_720_range_050.png}
 \caption{Service time of each core in a 0-50s interval at 720p (OpenMP).}
 \label{omp720jitter}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[scale=0.3]{soma_720_range_050.png}
+\includegraphics[scale=0.27]{soma_720_range_050.png}
 \caption{Service time of each core in a 0-50s interval at 720p (Soma).}
 \label{soma720jitter}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[scale=0.3]{omp_1080_range_040.png}
+\includegraphics[scale=0.27]{omp_1080_range_040.png}
 \caption{Service time of each core in a 0-60s interval at 1080p (OpenMP).}
 \label{omp1080jitter}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[scale=0.3]{soma_1080_range_040.png}
+\includegraphics[scale=0.27]{soma_1080_range_040.png}
 \caption{Service time of each core in a 0-60s interval at 1080p (Soma).}
 \label{soma1080jitter}
 \end{figure}
