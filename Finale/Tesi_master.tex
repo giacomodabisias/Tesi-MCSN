@@ -353,18 +353,18 @@ For what concerns the support to generic pragmas the only remarkable work, that 
 \chapter{Design}
 \section{The framework}
 
-The framework takes as input a C++ source code annotated with OpenMP and translates each pragma block in a task. After that the tool searches for the best possible schedule which satisfies the tasks timing contrains. The source code is then executed with the given schedule and the help of a newly produced run-time support.
+The developed framework takes as input a C++ source code annotated with OpenMP and translates each pragma block in a task. After that the tool searches for the best possible schedule which satisfies the tasks timing contrains. The source code is then executed with the given schedule and the help of a newly produced run-time support.
 
 The developed tool works accordingly to the following steps:
 \begin{itemize}
 \item{the \emph{AST}, Abstract Sintax Tree, of the source code is created using Clang. From this all the relevant information of each OpenMP pragma are extracted and inserted in a properly formatted XML file.}
 \item{Each pragma in the source code is substituted with a proper profiling function call. The execution of the new code produces a log file which includes, for each pragma, timing informations.  }
-\item{The new source code and the pragma XML file are given as imput to a second tool written in \emph{Python}. This tool parses the XML file and creates a graph which represents the parallel execution flow of the tasks. After that it executes the given profiled source code $N$ times creating statistics of the execution. The graph, enhanced with the new profiling information, is saved as a new XML file}
+\item{The new source code and the pragma XML file are given as imput to a second tool written in Python. This tool parses the XML file and creates a graph which represents the parallel execution flow of the tasks. After that it executes the given profiled source code $N$ times creating statistics of the execution. The graph, enhanced with the new profiling information, is saved as a new XML file}
 \item{ A scheduling algorithm is run on the created graph to find the best possible scheduling sequence, accordingly to the profiling information. The found scheduling is then checked to be compatible with the precedence contraints given by the OpenMP standard and, in case, a XML schedule file is created.}
 \item{ The source code is rewritten substituting to each pragma a proper code block for the creation of the tasks. During the execution each task is passed to the run-time support which allocates it accordingly to the previously creted schedule.}
 \end{itemize}
 
-Picture \ref{framework} gives a visual representation of the framwork.
+Picture \ref{framework} gives a visual representation of the framwork; boxes represent execution and ellipses represent files (C++, XML, executable).
 
 \begin{figure}[H]
 \centering
@@ -378,7 +378,7 @@ Picture \ref{framework} gives a visual representation of the framwork.
 \label{example}
 A simple example has been developed in order to show how the tool works in each step. Given the OpenMP semantic described before, the two \begin{bf}$\#$pragma omp section\end{bf} are executing in parallel and synchronize at the end of the \begin{bf}$\#$pragma omp parallel\end{bf}. The clause \emph{private(bar)} makes the \emph{bar} variable private to each thread in order to have no race condition. To execute the example with some timing constrains some code has been added inside of the for loop which is not relevant for the explaination purpose.
 
-%\lstset{language=CCC}
+
 \begin{lstlisting}[language=CCC, caption=Sample code, label=code]
 void work(int bar){
     #pragma omp parallel for
@@ -412,7 +412,7 @@ int main(int argc, char* argv[]) {
 \section{Analysis}
 \subsection{Code}
 \label{patch}
-Chapter presents and justifies the choices that have been made during the parsing of the input source code; in particular which features have been extracted and why.
+This chapter presents and justifies the choices that have been made during the parsing of the input source code; in particular which features have been extracted and why.
 
 First of all it will be shown how OpenMP pragmas are translated in the Clang’s AST. The framework targets only a small part of the OpenMP environments, in particular only \emph{parallel}, \emph{sections} (\emph{single}), \emph{section} (\emph{task}) and \emph{for} pragmas. These pragmas have the common property that they are all transformed into \emph{Stmt} nodes in the AST. Each of these pragmas is represented in the AST by a specific class: \emph{OMPParallelDirecetive}, \emph{OMPSectionsDirective} and so on. All these classes inherit from the \emph{OMPExecutableDirective} class which in turn derives from the \emph{Stmt} class. 
 
@@ -420,7 +420,7 @@ These classes have three main functions, one to know the name of the directive a
 
 A real-time program, to be scheduled, needs to provide some informations about its timing constraints, in particular the deadlines; this data can be provided in a separate file or directly inside of the code. In this framework the second approach has been chosen and it has been done using the OpenMP clauses. The standard clauses clearly don’t allow to specify the deadline of a pragma, so a patch has been added to the standard Clang to support the \emph{deadline} clause. This patch can be further enhanced to support other custom clauses, such as the activation time or the period.
 
-The framework parses the source code customizing the \emph{RecursiveASTVisitor} interface; in particular it overrides two methods: \emph{VisitFunctionDecl()} and \emph{VisitStmt()}. Each time the parser comes up with a \emph{FunctionDecl} object or a \emph{Stmt} object it invokes the associated custom function. \emph{VisitFunctionDecl()} adds all objects representing a function definition to a \emph{FIFO} queue.  At the end of the parsing this queue will contain the definition of all the functions in the input source code. \emph{VisitStmt()} instead triggers on each stmt, checking the type and in case of an \emph{OMPExecutableDirective} node it adds it to another \emph{FIFO} queue, that at the end will contain all the pragmas. The two queueus have the property that the order of their elements is given by the positions of the nodes in the source code: the smaller the starting line, the smaller its position in the list. This property is granted by the fact that the input code is parsed top down.
+The framework parses the source code customizing the \emph{RecursiveASTVisitor} interface; in particular it overrides two methods: \emph{VisitFunctionDecl()} and \emph{VisitStmt()}. Each time the parser comes up with a \emph{FunctionDecl} object or a \emph{Stmt} object it invokes the associated custom function. \emph{VisitFunctionDecl()} adds all objects representing a function definition to a \emph{FIFO} queue.  At the end of the parsing this queue will contain the definition of all the functions in the input source code. \emph{VisitStmt()} instead triggers on each stmt, checking the type and in case of an \emph{OMPExecutableDirective} node it adds it to another \emph{FIFO} queue, that at the end will contain all the pragmas. The two queues have the property that the order of their elements is given by the positions of the nodes in the source code: the smaller the starting line, the smaller its position in the list. This property is granted by the fact that the input code is parsed top down.
 
 Once all the pragmas are in the queue, the tool inspects each node, extracting information and saving them in a custom class and the newly created objects are used to build a pragma tree. Since an input code can have multiple functions containing OpenMP pragmas and at static time it is not possible to understand where and when these functions will be called, the framework builds different pragma trees, one for each function. It is possible to know, for each function, at which line its body starts and ends and so it is possible to match each pragma to the correct function. The tree structure is given by the nested architecture of the OpenMP pragmas, that has been described in chapter~\ref{openmp}. The building of the tree is quite simple and straightforward as there are several properties that comes handy. The extracted pragmas in the list are ordered according to their starting line, so pragmas belonging to the same function are continuous. Every time a pragma is popped from the list, its starting line is checked and if it belongs to the same function of the previous node it is added to the current tree, otherwise it will be the root of a new tree. Another property is that a pragma is a child of another pragma only if it is nested inside it; to be nested a node must have its starting line greater and its ending line smaller than the other one.  The last property, that still comes from the ordered pragma list and from the definition of nested, is that a node can be nested only in its previous node (in the list) or in the father of the previous node, or in the father of the father and so on.
 
@@ -428,7 +428,6 @@ Algorithm~\ref{tree} represents the pseudocode for the creation of the pragma tr
 
 \begin{algorithm}
 \begin{algorithmic}
-%\State \begin{bf}Data\end{bf}: 
 \Function{create\_tree}{pragma list L}
 \For{pragma \begin{bf}in\end{bf} L }
 \State Function f = \Call{get\_function}{pragma}; \Comment{Returns the function where the pragma is defined.}
@@ -589,9 +588,9 @@ To create the first graph the tool starts parsing the XML file and creating a pr
 
 The second graph is created taking care of the execution semantic given by OpenMP. Again the XML file is parsed and an object is created for each pragma. Each object is then connected with the proper ones and if necessary fake \emph{Barrier} nodes are added to guarantee the synchronization given by the standard. This special nodes are added whenever a "control" pragma is encountered; this is due to the fact that this type of pragmas use to have more than one children, creating a sort of diamond topology, which have to synchronize at the end of the pragma block, figure~\ref{call_graph}.
 
-\section{Visual graph generation}
+\section{Visualizing the code transformation}
 
-To visualize the code structure, parallel code execution and the function call graph, three different types of graph have been generated, each containing a series of nodes which are connected through undirected edges. The first node of each graph displays the function name along with the total computation time. For each function in the source code a different graph is created in two different formats; for visualization a PDF file, while a DOT file is created for manipulation purpouses. The code structure graph, simply called \emph{code graph}, shows how pragmas are nested inside each other. Each node displays relevant informations as pragma type, starting line, execution time and variance. The parallel code execution graph, called \emph{flow graph}, shows which nodes can be executed in parallel; some simple rules apply in this case to understand the execution flow:
+To visualize the code structure, parallel code execution and the function call graph, three different types of graph have been generated, each containing a series of nodes which are connected through undirected edges. The first node of each graph displays the function name along with the total computation time. For each function in the source code a different graph is created, using graphviz \cite{graphviz},  in two different formats; for visualization a PDF file, while a DOT file is created for manipulation purpouses. The code structure graph, simply called \emph{code graph}, shows how pragmas are nested inside each other. Each node displays relevant informations as pragma type, starting line, execution time and variance. The parallel code execution graph, called \emph{flow graph}, shows which nodes can be executed in parallel; some simple rules apply in this case to understand the execution flow:
 \begin{itemize}
 \item{a node can execute only after all the parents have completed.}
 \item{All nodes which have a single parent in common can execute in parallel (this is shown by having the same color for edges which can execute in parallel).}
@@ -601,7 +600,7 @@ In the \emph{call graph} each node invoking a function containing pragmas is con
 
 \begin{figure}[H]
 \centering
-\includegraphics[width = 130mm, height = 76mm]{call_graph.png}
+\includegraphics[scale=0.5]{call_graph.png}
 \caption{Call graph example.}
 \label{call_graph}
 \end{figure}
@@ -609,7 +608,7 @@ In the \emph{call graph} each node invoking a function containing pragmas is con
 
 \section{Intrumentation for profiling}
 
-To produce a good schedule the framework needs informations about the tasks, in particular their computation time, their relations and precedences. Paragraph~\ref{code} shows how pragmas are extracted and their structure; the next step is to retreive the computation time of each task and the functions’ call graph. The only way to get these informations is to profile at run\-time the sequential version of the input code; to have the sequential version, given that the code is parallelized with OpenMP, it is enough to compile it without the \emph{\-fopenmp} flag. 
+To produce a good schedule the framework needs informations about the tasks, in particular their computation time, their relations and precedences. Paragraph~\ref{code} shows how pragmas are extracted and their structure; the next step is to retreive the computation time of each task and the functions’ call graph. The only way to get these informations is to profile at run\-time the sequential version of the input code; to have the sequential version, given that the code is parallelized with OpenMP, it is enough to compile it without the \emph{\-fopenmp} flag. It is not possible to use existing profiling tools like gprof because they don't allow to time each pragma code block. for this reason a custom profiler has been implemented.
 
 To be profiled the code needs to be instrumented; in the original code calls to a run-time support are added which calculate the execution time of each tasks, track the caller id of each function and store them in a log file. 
 
@@ -648,7 +647,7 @@ Code~\ref{xmllog} shows the log file of the code~\ref{code}.
 
 \section{Profiling}
 
-The priviously instrumented code is first executed $N$ times, which is given as input parameter, using as arguments the data contained in a specific text file. At each iteration the algorithm produces, for each function and pragma, their execution time and, in case of a $\#$pragma omp for or $\#$pragma omp parallel for, also the number of executed cycles. This data is gathered during the $N$ iterations and then the mean value of the execution time, executed loops and variance for each node is produced and saved in a log file. 
+The previously instrumented code is first executed $N$ times, which is given as input parameter, using as arguments the data contained in a specific text file. At each iteration the algorithm produces, for each function and pragma, their execution time and, in case of a $\#$pragma omp for or $\#$pragma omp parallel for, also the number of executed cycles. This data is gathered during the $N$ iterations and then the mean value of the execution time, executed loops and variance for each node is produced and saved in a log file. 
 Code~\ref{meanlog} snipped of the log file produce from the Code~\ref{code}:
 
 \lstset{language=XML}
@@ -766,7 +765,7 @@ The algorithm checks then that all the deadlines and arrival times are consisten
 \section{Instrumentation for the execution}
 \label{designexecution}
 
-This paragraph will present the design strategies that have been used to instrument the input code to make it run accordingly to the schedule produced by the framework. The framework needs to be able to isolate each task and execute it in the thread specified by the schedule; to do so new lines of code are added in the original code to transform the old pragmas in a collection of atomic independent concreate tasks. In this phase the functions are not considered as tasks and they won’t be affected by the instrumentation. This is due to the fact that functions have no parallel semantic themselves and they can be simply executed by the tasks that invoke them, without affecting the semantic and improving the efficiency.
+This section presents the design strategies that have been used to instrument the input code to make it run accordingly to the schedule produced by the framework. The framework needs to be able to isolate each task and execute it in the thread specified by the schedule; to do so new lines of code are added in the original code to transform the old pragmas in a collection of atomic independent concreate tasks. In this phase the functions are not considered as tasks and they won’t be affected by the instrumentation. This is due to the fact that functions have no parallel semantic themselves and they can be simply executed by the tasks that invoke them, without affecting the semantic and improving the efficiency.
 
 The idea of this phase is to transform each pragma block of code into a function which will be called by the designated thread. One possibility is to take the code of the pragma, remove it from the function where it is defined and put it in a newly generated function; this way may be feasible with Clang but it is very complicated because of the presence of nested pragmas. 
 
@@ -982,7 +981,7 @@ Code~\ref{functionprofile} shows that the structure for profiling functions is a
 \subsection{Run-time}
 \label{profilerun}
 
-This paragraph describes the structure of the two run-time classes involved in the execution of the profiled code. One was already shown in the previous paragraph and the other is \emph{ProfileTrackerLog}. 
+This section describes the structure of the two run-time classes involved in the execution of the profiled code. One was already shown in the previous paragraph and the other is \emph{ProfileTrackerLog}. 
 
 \emph{ProfileTrack}’s constructor, when invoked, starts the timer for the current block, invokes \emph{ReplaceCurrentPragma(this)} which updates \emph{ProfileTracker} \\ \emph{*current\_pragma\_executing\_} with the input value and returns the old value of the variable. The returned value is saved in \emph{previous\_pragma\_executed\_} and identifies the caller id of the current pragma or function. \emph{current\_pragma\_executing\_} holds the reference to the pragma or function that is currently executing, it is used to track the caller id of each block and to create the call graph. 
 
@@ -1382,7 +1381,7 @@ Computer vision is a field that includes methods for acquiring, processing, anal
 
 A widely used operation sequence consists in aquiring an image, filtering out all the irrelevant details, extracting some features, match the features against a predefined object and then build a homography matrix in order to obtain the position of the object in the image. In general computer vision operations can work on single pixels, blocks of pixels or entire images; depending on this it is possible to apply task parallelism or data parallelism. \emph{Map-reduce} and \emph{Pipelines} are farly common in this sector given that often a stream of images is processed by applying different filters in sequence, using a \emph{Pipeline}; each filter is parallelized dividing the image in chuncks which are processed by different computing units and then reassembled to form the final image, \emph{Map-reduce}.
 
-The test application consists of a face recognition algorithm in opencv (\cite{opencv}\cite{openbook}) that analyzes two videos which reseamble the stereoscopic view of a person. The application tryes to recognize each face in each video frame and then prints a circle in the frame to locate it. The test videos have been produced in three different formats: 480p, 720p and 1080p; in each video two different people move around in a closed environment.  Algorithm~\ref{testcode} shows the general structure of the test code.
+The test application consists of a face recognition algorithm in OpenCV (\cite{opencv}\cite{openbook}) that analyzes two videos which reseamble the stereoscopic view of a person. The application tryes to recognize each face in each video frame and then prints a circle in the frame to locate it. The test videos have been produced in three different formats: 480p, 720p and 1080p; in each video two different people move around in a closed environment.  Algorithm~\ref{testcode} shows the general structure of the test code.
 
 \begin{algorithm}
 \begin{algorithmic}
@@ -1515,7 +1514,7 @@ One of the produced schedule in shown in code \ref{scheduletest}.
 
 \section{Results with statistics}
 
-Table \ref{timetable} illustrates the completion time of the sequential execution, the OpenMP version and the program rewritten using the framework. As seen from table \ref{timetable} and graph \ref{timegraph} the framework achieves the same statistics as OpenMP having an almost one scaling factor.
+Table \ref{timetable} illustrates the completion time of the sequential execution, the OpenMP version and the program rewritten using the framework; from now on, for the sake of simplicity, the framework will be called Soma (static OpenMP multicore allocator). As seen from table \ref{timetable} and graph \ref{timegraph} the framework achieves the same statistics as OpenMP having an almost one scaling factor.
 
 \begin{figure}[H]
 \centering
@@ -1545,9 +1544,9 @@ Table \ref{timetable} illustrates the completion time of the sequential executio
 \end{center}
 \end{table}
 
-The different service times, for each thread, have been analyzed in each of the three different video qualities. This time is given by the value between two consecutives frame outputs and its mean value and variance are shown in the relative tables; boxplots have been created to show their statistics. 
+All the represented values have been obtained executing five times the test program. The different service times, for each thread, have been analyzed in each of the three different video qualities. This time is given by the value between two consecutives frame outputs and its mean value and variance are shown in the relative tables; boxplots have been created to show their statistics. 
 
-All the results remain consistent for all the different input videos; each thread has similar statistics both in OpenMP and Soma. As expected from table \ref{timetable} the service time of OpenMP and Soma are almost the same; the only difference results in a lower variance in almost all cases, achieving half the OpenMP value in the majority. This result shows that the overhead introduced by the runtime support of Soma is almost constant gauranteeing the possibility of achieving real-time contrains. The boxplots represents all the measurements of the services times of each thread; it it possible to notice that each boxpolot shows some higher values due to the initial runtime overhed. OpenMp has almost always a constant value, while Soma has a higher variance on it.
+All the results remain consistent for all the different input videos; each thread has similar statistics both in OpenMP and Soma. As expected from table \ref{timetable} the service time of OpenMP and Soma are almost the same; the only difference results in a lower variance in almost all cases, achieving half the OpenMP value in the majority. This result shows that the overhead introduced by the runtime support of Soma is almost constant gauranteeing the possibility of achieving real-time contrains. The boxplots represents all the measurements of the services times of each thread; it it possible to notice that each boxpolot shows some higher values due to the initial runtime overhed. OpenMP has almost always a constant value, while Soma has a higher variance on it.
 
 
 \begin{table}[H]
@@ -1794,6 +1793,7 @@ APA
 \bibitem{mercurium} J. Balart, et al. \emph{Nanos mercurium: a research compiler for openmp.} Proceedings of the European Workshop on OpenMP. Vol. 8. 2004.
 \bibitem{intelomprtl}https://www.openmprtl.org/
 \bibitem{clomp}https://github.com/motonacciu/clomp/
+\bibitem{graphviz} J. Ellson et al. \emph{Graphviz—open source graph drawing tools.} Graph Drawing. Springer Berlin Heidelberg, 2002.
 \bibitem{zvtm}http://zvtm.sourceforge.net/zgrviewer.html
 \bibitem{mfp} Ricardo Garibay-Martinez, Luis Lino Ferreira and Luis Miguel Pinho, \emph{A Framework for the Development of Parallel and Distributed Real-Time Embedded Systems}
 \bibitem{pop}Antoniu Pop (1998). \emph{OpenMP and Work-Streaming Compilation in GCC}. 3 April 2011, Chamonix, France
