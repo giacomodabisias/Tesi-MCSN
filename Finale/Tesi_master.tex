@@ -17,9 +17,6 @@
 \usepackage{algpseudocode}
 \usepackage{pdfpages}
 
-%\usepackage[colorlinks]{hyperref}
-%\hypersetup{urlcolor=darkblue}
-
 \pagestyle{plain}
 
 \lstset{
@@ -37,11 +34,9 @@
 \definecolor{mauve}{rgb}{0.58,0,0.82}
 \definecolor{black}{rgb}{0,0,0}
 \definecolor{purple}{RGB}{138,43,226}
-%\definecolor{ocra}{rgb}{0.204, 0.119, 0.34}218-165-32
 \definecolor{ocra}{RGB}{218,165,32}
 \definecolor{maroon}{rgb}{0.5,0,0}
 \definecolor{darkgreen}{rgb}{0,0.5,0}
-%\definecolor{indianred}{RGB}{205,92,92}165-42-42
 \definecolor{indianred}{RGB}{178,34,34}
 
 \lstdefinelanguage{XML}
@@ -77,11 +72,9 @@
   stepnumber=1,                    
   tabsize=2,                       
   title=\lstname,                   
-  %language=C++,
   basicstyle=\ttfamily,
   stringstyle=\color{ocra}\ttfamily,
   morestring=[b]",
-  %commentstyle=\color{gray}\ttfamily,
   identifierstyle=\color{black}\ttfamily,
   morecomment=[l][\color{maroon}]{pragma\ },
   morecomment=[l][\color{gray}]{//},
@@ -106,9 +99,7 @@
   keywordstyle=\color{blue},
   language=C++,
   morecomment=[s][\color{gray}]{<}{>},
-  %identifierstyle=\color{green},
   stringstyle=\color{ocra},
-  %numberstyle=\color{purple},
  basicstyle=\color{black}\scriptsize
 }
 \renewcommand{\lstlistingname}{Code}
@@ -123,13 +114,13 @@
 \frontmatter
 \tableofcontents
 
-\chapter{Abstract}
+\chapter*{Abstract}
 
-The aim of this thesis is to create a framework for guaranteeing \emph{real-time} constraints on parallel \emph{OpenMP} C++ code. The framework provides a static schedule for the allocation of tasks on system threads and a run-time support for the \emph{real-time} execution. In order to do so the original source code is first instrumented, then profiled and finally rewritten by means of clang. Performance results are provided on a Computer Vision application.
+The aim of this thesis is to create a framework for guaranteeing real-time constraints on parallel OpenMP C++ code. The framework provides a static schedule for the allocation of tasks on system threads and a run-time support for the real-time execution. In order to do so the original source code is first instrumented, then profiled and finally rewritten by means of clang. Performance results are provided on a Computer Vision application.
 
-\section{Chapter's structure}
+\section*{Chapter's structure}
 
-The thesis is organized as follows. Section I presents the motivations and context of the system, the terminology and all the necessary background concepts as OpenMp and Clang. Section II describes the overall framework structure along with a simple example to illustrate its execution flow. Section III illustrates how all the steps of Section II have been implemented using pseudocode to show the most relevant algorithms. Section VI includes tests and results of the framework on a computer vision application. Section V discusses the final results and some possible further extension for a future work.
+The thesis is organized as follows. Section I presents the motivations and context of the system, the terminology and all the necessary background concepts as OpenMP and Clang. Section II describes the overall framework structure along with a simple example to illustrate its execution flow. Section III illustrates how all the steps of Section II have been implemented using pseudocode to show the most relevant algorithms. Section VI includes tests and results of the framework on a computer vision application. Section V discusses the final results and some possible further extension for a future work.
 
 \mainmatter
 \chapter{Introduction}
@@ -138,25 +129,25 @@ The thesis is organized as follows. Section I presents the motivations and conte
 
 The last years have seen the transition from single core architectures towards multicore architectures, mainly in the desktop and server enviroment. Lately also small devices as smartphones, embedded microprocessors and tablets have started to use more than a single core processor. The actual trend is to use a lot of cores with just a reduced instruction set as in \emph{general purpose GPUs}.
 
-\emph{Real time} systems are becoming more and more common, finding their place in almost all aspects of our daily routines; this systems often consist of several applications executing concurrently on shared resources. 
+Real-time systems are becoming more and more common, finding their place in almost all aspects of our daily routines; these systems often consist of several applications executing concurrently on shared resources. 
 The main differences between these systems and a system designed to achive high performance can be summarized as follows:
 \begin{itemize}
-\item{ \emph{real time} programs need strict timing guarantees, while high performance programs try to achive the lowest possible computation time, usually in a best effort manner.}
-\item{\emph{Real time} programs need to be predictable; in principle it could be that a real time program could finish almost always before its deadline on a high performance system, but it could be that in some exceptional cases, due to execution preemption, context switches, concurrent resource access \dots the program does not finish in time. To solve this, it may happen that the mean execution time of the real time program grows, but the program becomes also predictable, in the sense that it always finishes within its deadline.}
-\item{ High performance systems need to "scale" well when the architecture becomes more powerful, while \emph{real time} systems need just to satisfy the timing contrains, even with no performance gain.}
+\item{ real-time programs need strict timing guarantees, while high performance programs try to achive the lowest possible computation time, usually in a best effort manner.}
+\item{Real-time programs need to be predictable; in principle it could be that a real time program could finish almost always before its deadline on a high performance system, but it could be that in some exceptional cases, due to execution preemption, context switches, concurrent resource access \dots the program does not finish in time. To solve this, it may happen that the mean execution time of the real time program grows, but the program becomes also predictable, in the sense that it always finishes within its deadline.}
+\item{ High performance systems need to "scale" well when the architecture becomes more powerful, while real-time systems need just to satisfy the timing contrains, even with no performance gain.}
 
 \end{itemize}
 
-The most relevant drawback of actual real time systems is that most of them are usually made to exploit just one single computing core, while their capabilities demand is growing. Applications like Computer Vision, Robotics, Simulation, Video Encoding/Decoding, Software Defined Radios, \dots have the necessity to process in parallel more tasks to achive a positive feedback for the user. This brings two possible solutions:
+The most relevant drawback of actual real time systems is that most of them are usually made to exploit just one single computing core, while their capabilities demand is growing. Applications like Computer Vision, Robotics, Simulation, Video Encoding/Decoding and Software Defined Radios have the necessity to process in parallel more tasks to achive a positive feedback for the user. This brings two possible solutions:
 \begin{itemize}
 \item{find new and better scheduling algorithms to allocate new tasks using the same single core architecture.}
 \item{Upgrade the processing power by adding new computing cores or by using a faster single core.}
 \end{itemize}
 
 The first solution has the disadvantage that, if the computing resources are already perfectly allocated, it is not possible to find any better scheduling for the tasks to make space for a new job. A faster single core is also often not feasible, given the higher power consumption and temperature; this aspect is very relevant in embedded devices. 
-The natural solution to the problem is to exploit the new trend toward multicore systems; this solution has opened a new research field and has brought to view a lot of new challenging problems. Given that the number of cores is doubling according to the well known \emph{Moores law}, it is very important to find a fast and architecture independent way to map a set of \emph{real time} tasks on computing cores. With such a tool, it would be possible to upgrade or change the computing architecture in case of new \emph{real time} jobs, just scheduling them on the new system.
+The natural solution to the problem is to exploit the new trend toward multicore systems. This solution has opened a new research field and has brought to view a lot of new challenging problems. Given that the number of cores is doubling according to the well known \emph{Moores law}, it is very important to find a fast and architecture independent way to map a set of \emph{real time} tasks on computing cores. With such a tool, it would be possible to upgrade or change the computing architecture in case of new real-time jobs, just scheduling them on the new system.
 
-There is plenty of works on the problem of scheduling \emph{real time} tasks on multiprocesses, but they are all mainly theoretical \cite{bbw2}\cite{real1}\cite{real2}.
+There is plenty of works on the problem of scheduling real-time tasks on multiprocesses, but they are all mainly theoretical. \cite{bbw2} uses the virtual processors approach to model a single physical processor as multicore and then schedules tasks using a modified version of the Chetto\&Chetto algorithm. \cite{real1} propose and evaluate a cache-aware Pfair-based scheduling scheme for real-time tasks on multicore platforms. \cite{real2} makes an empirical evaluation of several global and partitioned scheduling algorithms. All these papers have inspired the development of the framework.
 
 
 
@@ -165,7 +156,7 @@ There is plenty of works on the problem of scheduling \emph{real time} tasks on 
 The described tool aims to solve the previously stated problems providing the following features.
 
 \begin{itemize}
-\item{an easy \emph{API} for the programmer to specify the concurrency between \emph{real time} tasks together with all the necessary scheduling parameters (deadlines, computation times, activation times \dots)}
+\item{an easy \emph{API} for the programmer to specify the concurrency between real-time tasks together with all the necessary scheduling parameters (deadlines, computation times, activation times \dots)}
 \item{A way to visualize task concurrency and code structure as graphs.}
 \item{A \emph{scheduling algorithm} which supports multicore architectures, adapting to the specific platform.}
 \item{A \emph{run time support} for the program execution which guarantees the scheduling order of tasks and their timing contrains.}
@@ -176,13 +167,13 @@ The described tool aims to solve the previously stated problems providing the fo
 
 In the last years the diffusion of multi-core platforms has rapidly increased enhancing the need of tools and libraries to write multi-threaded programs. 
 
-Several major software companies developed their own multi-thread libraries like Intel with Thread Building Block (TBB) \cite{tbb} and Microsoft with Parallel Patterns Library (PPL) \cite{ppl}. There are also several open-source libraries like Boost \cite{boost} and OpenMP \cite{openmp}. With the release of C++11 standard also the standard C++ library supports threading.
+Several major software companies developed their own multi-thread libraries like Intel with Thread Building Block (TBB) \cite{tbb} and Microsoft with Parallel Patterns Library (PPL) \cite{ppl}. In the open-source area the OpenMP standard \cite{openmp} is the  most relevant and important project and it is supported by many companies. These libraries have the characteristic that they allow to write multi-threaded programs without concerning about thread management. There are also libraries and standards that allow a low-level approach; the most important examples are the open-source Boost library \cite{boost} and the C++11 standard.
 
 Lately appeared also automatic parallelization tools; these softwares allow to automatically transform a sequential code into an equivalent parallel one, like the Intel C++ compiler \cite{icc} and Parallware \cite{parallware}.  
 
-Lastly it is worth to mention briefly GPUs, that have become accessible to programmers with the release of tools like Nvidia's CUDA or the open-source OpenCL. These libraries allow the user to easily run code on the GPU; of course the program to run must have some particular features because GPU are still not general purpose. 
+Lastly it is worth to mention briefly GPUs, that have become accessible to programmers with the release of tools like Nvidia's CUDA or the OpenCL standard. These libraries allow the user to easily run code on the GPU; of course the program to run must have some particular features because GPU are still not general purpose. 
 
-It was necessary to find two multi-threaded libraries, one used by the input program to describe its parallel sections and the other to run the input program with the static custom schedule, in described framework.
+The framework needs two multi-threaded libraries, one used by the input program to describe its parallel sections and the other to run the input program with the static custom schedule, in described framework.
 
 The first library has to satisfy the following requirements: it has to allow to transform easily a given sequential \emph{real-time} code into a parallel one, without upsetting too much the original structure of the code, given that these kind of code have been usually deeply tested and must meet strict requirements.
 
@@ -195,7 +186,7 @@ The second library has instead opposite requirements as it has to be highly effi
 \section{The OpenMP standard}
 \label{openmp}
 
-Jointly defined by a group of major computer hardware and software vendors, OpenMP is a portable, scalable model that gives shared-memory parallel programmers a simple and flexible interface for developing parallel applications for platforms ranging from desktops to supercomputers.
+Jointly defined by a group of major computer hardware and software vendors in 1998, OpenMP is a portable, scalable model that gives shared-memory parallel programmers a simple and flexible interface for developing parallel applications for platforms ranging from desktops to supercomputers. The last stable version is 4.0.
 
 The OpenMP API uses the fork-join model of parallel execution. Multiple threads of execution perform tasks defined implicitly or explicitly by OpenMP directives. The OpenMP API is intended to support programs that will execute correctly both as parallel programs (multiple threads of execution and a full OpenMP support library) and as sequential programs (directives ignored and a simple OpenMP stubs library).
 
@@ -240,15 +231,13 @@ OpenMP synchronization directives as \begin{bf}$\#$pragma omp barrier\end{bf} ar
 \caption{OpenMP directives nested structure.}
 \end{figure}
 
-An extention of OpenMP with new directives to support asynchronous parallelism has devoleped at the Barcelona supercomputing center (BSC) which is called OMPSS \cite{ompss}. Asynchronous parallelism is enabled in OmpSs by the use data-dependencies between the different tasks of the program. The OpenMP task construct is extended with the \emph{in} (standing for input), \emph{out} (standing for output) and \emph{inout} (standing for input/output) clauses to this end. They allow to specify for each task in the program what data a task is waiting for and signaling is readiness. OMPSS can also be understood as new directives extending other accelerator based APIs like CUDA or OpenCL. OMPSS has not been chosen since it is not compatible with Clang.
+An extention of OpenMP with new directives to support asynchronous parallelism has been devoleped at the Barcelona supercomputing center (BSC) which is called OMPSS \cite{ompss}. Asynchronous parallelism is enabled in OMPSS by the use data-dependencies between the different tasks of the program. The OpenMP task construct is extended with the \emph{in} (standing for input), \emph{out} (standing for output) and \emph{inout} (standing for input/output) clauses to this end. They allow to specify for each task in the program what data a task is waiting for and signaling is readiness. OMPSS can also be understood as new directives extending other accelerator based APIs like CUDA or OpenCL. OMPSS has not been chosen because it is based on its own source to source translator and the development is limited to the BSC. The aim of this project instead is to interface the parallel capabilities to a community driven system as Clang. This will allow to benefit from the main contributors of Clang and other plugins of Clang.
 
 \section{Clang as LLVM frontend}
 
-Clang \cite{clang} is a compiler front-end for the C, C++ and Objective-C programming languages and tit relies on LLVM as back-end. 
+Clang \cite{clang} is a compiler front-end for the C, C++ and Objective-C programming languages and it relies on LLVM as back-end. 
 
-A compiler front-end is in charge of analyzing the source code to build the intermediate representation (IR) which is an internal representation of the program. The front-end is usually implemented in three phases: lexing, parsing and semantic analysis. This helps to improve modularity and separation of concern and it allows programmers to use the front-end as a library in their projects. 
-
-The IR is used by the compiler back-end (LLVM in the case of Clang) which transforms it into machine language, operating in three macro phases: analysis, optimization and code generation. 
+A compiler front-end is in charge of analyzing the source code to build the intermediate representation (IR) which is an internal representation of the program. The front-end is usually implemented in three phases: lexing, parsing and semantic analysis. This helps to improve modularity and separation of concern and it allows programmers to use the front-end as a library in their projects.  The IR is used by the compiler back-end (LLVM in the case of Clang) which transforms it into machine language, operating in three macro phases: analysis, optimization and code generation \cite{compiler}. 
 
 The LLVM project was started at the University of Illinois at Urbana–Champaign, under the direction of Vikram Adve and Chris Lattner \cite{llvm1} \cite{llvm2}. In 2005 Apple hired Lattner and formed a team to work on the LLVM system for various uses within Apple's development systems; the Clang compiler was born as a project of this team and was open-sourced in 2007. Nowadays its development is completely open-source and besides Apple there are several major software companies involved, such as Google and Intel.
 
@@ -256,11 +245,12 @@ Clang is designed to be highly compatible with GCC and its command line interfac
 \begin{itemize}
  \item Clang has proven to be faster and less memory consuming in many situations \cite{clanggcc}. 
  \item Clang has a modular, library based architecture and this structure allows the programmer to easily embed Clang’s functionalities inside its code. Each of the libraries that forms Clang has its specific role and set of functions; in this way the programmer can just simply use the libraries he needs, without having to study the whole system. On the other side GCC's design makes it difficult to decouple the front-end from the rest of the compiler.
- \item Clang provides the possibility to perform code analysis, information extraction and, most important, source-to-source transformation.
+ \item Clang provides the possibility to perform code analysis, information extraction and, most important, source-to-source translation.
 \end{itemize}
 
-Clang was not the only alternative to GCC, since also other open-source projects, like the Rose Compiler \cite{rose} and Mercurium \cite{mercurium} were viable options. The Rose Compiler has been developed at the Lawrence Livermore National Laboratory (USA) and it provides the possibility to perform source-to-source transformation and to build code analysis tools, but unfortunately it doesn't support OpenMP. Mercurium has been devolped at the Barcelona Supercomputing Center and it provides source-to-source transformation tools as well as the support to OpenMP, however it has not been chosen because of its little spread, comparing it with Clang. 
+Clang was not the only alternative to GCC, since also other open-source projects, like the Rose Compiler \cite{rose} and Mercurium \cite{mercurium} were viable options. The Rose Compiler has been developed at the Lawrence Livermore National Laboratory (USA) and it provides the possibility to perform source-to-source transformation and to build code analysis tools, but unfortunately it doesn't support OpenMP. Mercurium has been devolped at the Barcelona Supercomputing Center and is the basis of OMPSS. It provides source-to-source transformation tools as well as the support to OpenMP, however it has not been chosen for the same reasons as OMPSS. 
 
+\subsection{Clang abstract syntax tree}
 The strength of Clang is in its implementation of the Abstract Syntax Tree (AST). Clang’s AST is different from ASTs produced by some other compilers in that it closely resembles both the written C++ code and the C++ standard.
 
 The AST is accessed through the \emph{ASTContext} class. This class contains a reference to the \emph{TranslationUnitDecl} class which is the entry point into the AST (the root) and it also provides the methods to traverse it.
@@ -271,7 +261,7 @@ As the name suggests, the classes that derive from the \emph{Decl} type represen
 
 Clang’s AST is fully type resolved and this is afforded using the \emph{Type} class which allows to describe all possible types (\emph{PointerType}, \emph{ArrayType}).
 
-Lastly there is the \emph{Stmt} type which refereres to the control flow (\emph{IfStmt}) and loop block of code (\emph{ForStmt}, \emph{WhileStmt}), expressions (\emph{Expr}), return commands (\emph{ReturnStmt}), scopes (\emph{CompoundStmt}), \dots 
+Lastly there is the \emph{Stmt} type which refereres to the control flow (\emph{IfStmt}) and loop block of code (\emph{ForStmt}, \emph{WhileStmt}), expressions (\emph{Expr}), return commands (\emph{ReturnStmt}), scopes (\emph{CompoundStmt}), etc
 
 Together with the above mentioned three types, there are other “glue” classes that allow to complete the semantic. The most remarkable ones are: the \emph{TemplateArgument} class, that, as the name suggests, allows to handle the template semantic and the \emph{DeclContex} class which is used to extend \emph{Decl} semantic and will be explained later. 
 
@@ -348,7 +338,7 @@ TranslationUnitDecl
         `-DeclRefExpr <col:10> 'int' lvalue Var 'val' 'int'
 \end{lstlisting}
 
-
+\subsection{Clang and OpenMP}
 Clang supports the insertion of custom code through the \emph{Rewriter} class. This class provides several methods that allow, specifying a \emph{SourceLocation}, to insert, delete and replace code and it also allows to replace a \emph{Stmt} object with another one. The programmer cannot know a priori the structure of the input source code, so the best way to insert the custom text, in the correct position, is during the parsing of the AST. It is in fact possible to access each node’s start and end \emph{SourceLocations} reference, to transform them in a line plus column number and insert the text at the end of the line or at line above or below, as needed. 
 
 The text to be rewritten and its position are stored, during the parsing of the AST, in a buffer inside the \emph{Rewriter} object; when the parsing is completed a new source file is generated with the buffer’s data inserted in it.  
@@ -1551,7 +1541,6 @@ Table \ref{timetable} illustrates the completion time of the sequential executio
 \hline 
 \end{tabular}
 \caption{Completition time of the programs at the variation of the video quality.}
-\label{times}
 \label{timetable}
 \end{center}
 \end{table}
@@ -1627,7 +1616,7 @@ All the results remain consistent for all the different input videos; each threa
 \hline
 \end{tabular}
 \caption{Service time of each thread (gap between the delivery of a parsed image). Video quality 720p}
-\label{times}
+\label{times2}
 \end{center}
 \end{table}
 
@@ -1668,7 +1657,7 @@ All the results remain consistent for all the different input videos; each threa
 \hline
 \end{tabular}
 \caption{Service time of each thread (gap between the delivery of a parsed image). Video quality 1080p}
-\label{times}
+\label{times3}
 \end{center}
 \end{table}
 
@@ -1797,6 +1786,7 @@ APA
 \bibitem{benini}A. Marongiu, L. Benini. \emph{Efficient OpenMP support and extensions for MPSoCs with explicitly managed memory hierarchy.} Proceedings of the conference on Design, automation and test in Europe. European Design and Automation Association, 2009.
 \bibitem{ompss} A. Duran, et al. \emph{Ompss: a proposal for programming heterogeneous multi-core architectures.} Parallel Processing Letters 21.02, 2011
 \bibitem{clang}http://clang.llvm.org/
+\bibitem{compiler} M. Lam, R. Sethi, and J. Ullman. \emph{Compilers: principles, techniques, \& tools.} Vol. 1009. Pearson/Addison Wesley, 2007.
 \bibitem{llvm1} C. Lattner. \emph{LLVM: An infrastructure for multi-stage optimization}. Master Thesis, University of Illinois at Urbana-Champaign, 2002.
 \bibitem{llvm2} C. Lattner, V. Adve. \emph{LLVM: A compilation framework for lifelong program analysis \& transformation}. International Symposium on Code Generation and Optimization, 2004. 
 \bibitem{clanggcc}http://clang.llvm.org/features.html\#performance
