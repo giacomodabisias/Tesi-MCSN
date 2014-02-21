@@ -47,6 +47,12 @@
 \lstdefinelanguage{XML}
 {
   basicstyle=\ttfamily,
+  frame=single,            
+  captionpos=b,       
+  breaklines=true,       
+ numbers=left,                    
+  numbersep=5pt,                   
+  numberstyle=\tiny\color{gray},                               
   morestring=[s]{"}{"},
   morecomment=[s]{?}{?},
   morecomment=[s]{!--}{--},
@@ -300,7 +306,7 @@ int main() {
 	a.set_x(val);
 }
 \end{lstlisting}
-
+\newpage
 \begin{lstlisting}[language=AST, caption=Clang AST of the simple code., label=ast]
 TranslationUnitDecl
 |-CXXRecordDecl <clang_ast_test.cpp:2:1, line:13:1> class A
@@ -372,7 +378,7 @@ Picture \ref{framework} gives a visual representation of the framwork.
 
 \begin{figure}[H]
 \centering
-\includegraphics[scale=0.5]{tgraph.pdf}
+\includegraphics[scale=0.43]{tgraph.pdf}
 \caption{The famework structure}
 \label{framework}
 \end{figure}
@@ -384,17 +390,13 @@ A simple example has been developed in order to show how the tool works in each 
 
 %\lstset{language=CCC}
 \begin{lstlisting}[language=CCC, caption=Sample code, label=code]
-#include <omp.h>
-
-int work(int bar){
+void work(int bar){
     #pragma omp parallel for
     for (int i = 0; i < bar; ++i)
     {
        //do stuff
     }  
-    return 0;
 };
-
 int main(int argc, char* argv[]) {
     int bar;
     #pragma omp parallel private(bar)
@@ -406,7 +408,6 @@ int main(int argc, char* argv[]) {
                 //do stuff (bar)
                 work(bar);
             }
-            
             #pragma omp section
             {
                 //do stuff (bar)
@@ -414,9 +415,7 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-    return 0;
 }
-
 \end{lstlisting}
 
 
@@ -437,7 +436,7 @@ Once all the pragmas are in the queue, the tool inspects each node, extracting i
 
 Algorithm~\ref{tree} represents the pseudocode for the creation of the pragma tree.
 
-\begin{algorithm}[H]
+\begin{algorithm}
 \begin{algorithmic}
 %\State \begin{bf}Data\end{bf}: 
 \Function{create\_tree}{pragma list L}
@@ -777,9 +776,7 @@ The algorithm checks then that all the deadlines and arrival times are consisten
 \section{Instrumentation for the execution}
 \label{designexecution}
 
-This paragraph will present the design strategies that have been used to instrument the input code to make it run accordingly to the schedule produced by the framework. 
-
-The framework needs to be able to isolate each task and execute it in the thread specified by the schedule; to do so new lines of code are added in the original code to transform the old pragmas in a collection of atomic independent concreate tasks. In this phase the functions are not considered as tasks and they won’t be affected by the instrumentation. This is due to the fact that functions have no parallel semantic themselves and they can be simply executed by the tasks that invoke them, without affecting the semantic and improving the efficiency.
+This paragraph will present the design strategies that have been used to instrument the input code to make it run accordingly to the schedule produced by the framework. The framework needs to be able to isolate each task and execute it in the thread specified by the schedule; to do so new lines of code are added in the original code to transform the old pragmas in a collection of atomic independent concreate tasks. In this phase the functions are not considered as tasks and they won’t be affected by the instrumentation. This is due to the fact that functions have no parallel semantic themselves and they can be simply executed by the tasks that invoke them, without affecting the semantic and improving the efficiency.
 
 The idea of this phase is to transform each pragma block of code into a function which will be called by the designated thread. One possibility is to take the code of the pragma, remove it from the function where it is defined and put it in a newly generated function; this way may be feasible with Clang but it is very complicated because of the presence of nested pragmas. 
 
@@ -791,10 +788,9 @@ In the case of a \emph{for} pragma the framework needs to perform some additiona
 for(int i = begin; i < end; i ++)
 \end{lstlisting}
 becomes
-
 \begin{lstlisting}[language=CCC]
 int id; //incremental identifier of the task
-int num_threads; // number of threads concurring in the execution of the for;
+int num_threads; // number of threads concurring in the execution
 for(int i = begin + id * (end - begin) / num_threads; i < (id + 1) * (end - begin) / num_threads; i ++)
 \end{lstlisting}
 so if $num\_threads  = 4$, $begin = 0$, $end = 16$, each thread will execute four iterations and in particular the third thread, with $id = 2$ (identifier starts always from zero), will execute:
@@ -813,17 +809,19 @@ This approach does not change the structure of the code, in particular nested pr
 
 This chapter will present how the run-time support for the execution of the final program has been designed. The aim of the run-time is to instantiate and manage the threads and to control the execution of the tasks. In particular it must allocate each task on the correct thread and must grant the precedence constraints between tasks. The run-time must have a very low execution overhead in order to satisfy all the tasks' timing constraints. For this reason the run-time does no time consuming computations and all its allocation decisions are made based on what is written in the schedule. All the heavy calculations, to decide the tasks allocation, has been already done by the schedule algorithm before the program execution and the produced schedule is taken as input by the program. 
 
+\begin{figure}[H]
+\centering
+\includegraphics[scale=0.6]{runtime_execution.pdf}
+\caption{Flow execution of the runtime support.}
+\end{figure}
+
 Now the execution of the run-time will be presented step by step. First of all the run-time parses the schedule file extracting all the information and storing them in its variables; it then instantiates a threads pool as large as specified in the schedule and creates a job queue for each thread. 
 
 Every time the main program invokes the run-time support it passes to it the object containing the function to be executed. The run-time embeds the received object in an ad-hoc class, that includes the methods and variables needed to perform synchronization on that task. The created job is inserted in a vector shared by all threads; at this point the run-time searches which thread has been designated to run that job and puts an identifier of the job in that thread’s job queue. In case of a For task the run-time has to execute some additional steps: if For task is splitted on more threads the run-time has to duplicate the task for each thread involved; each copy is initialized with an incremental identifier starting from zero and it also receives the total number of threads concurring in the execution of the task. These values are mandatory to inform each thread about the iterations of the For it has to execute. 
 
 Each thread executes an infinite loop; at the beginning of each iteration the thread checks if its queue contains a references to a job and in case pulls the first identifier usesing it to retrieve the real job in the shared vector and executes it. When the job ends the thread checks the schedule to see if it has to wait for other tasks to complete. After that the thread notifies that the job has been completed so that any other thread waiting on that job can continue their executions. The common jobs’ vector is needed because it allows to share information of a task between all the threads, in particular it is fundamental to perform task synchronization. In Code~\ref{code} the \emph{Sections} task at line 16, after launching its children tasks, has to wait for them to complete in order to finish. This rule is true for each “control” pragma that has children. 
 
-\begin{figure}[H]
-\centering
-\includegraphics[scale=0.6]{runtime_execution.pdf}
-\caption{Flow execution of the runtime support.}
-\end{figure}
+
 
 
 \chapter{Implementation}
@@ -897,7 +895,7 @@ Part of the XML produced for the example \ref{code} is shown  in \ref{schedule}
 
 After the profiling step, the different types of gaphs described in paragraph~\ref{paralelism} are created. To generate the main graph, the \emph{flow graph}, which represents the execution flow of the program, the following pseudo code has been implemented:
 
-\begin{algorithm}[H]
+\begin{algorithm}
 \begin{algorithmic}
 \State \begin{bf}Data\end{bf}: pragma\_xml = list of pragmas, profile\_xml = profile log
 \Function{getParalGraph}{ pragma\_xml, profile\_xml}
@@ -996,7 +994,7 @@ Code~\ref{functionprofile} shows that the structure for profiling functions is a
 
 This paragraph describes the structure of the two run-time classes involved in the execution of the profiled code. One was already shown in the previous paragraph and the other is \emph{ProfileTrackerLog}. 
 
-\emph{ProfileTrack}’s constructor, when invoked, starts the timer for the current block, invokes \emph{ReplaceCurrentPragma(this)} which updates \emph{ProfileTracker *current\_pragma\_executing\_} with the input value and returns the old value of the variable. The returned value is saved in \emph{previous\_pragma\_executed\_} and identifies the caller id of the current pragma or function. \emph{current\_pragma\_executing\_} holds the reference to the pragma or function that is currently executing, it is used to track the caller id of each block and to create the call graph. 
+\emph{ProfileTrack}’s constructor, when invoked, starts the timer for the current block, invokes \emph{ReplaceCurrentPragma(this)} which updates \emph{ProfileTracker} \\ \emph{*current\_pragma\_executing\_} with the input value and returns the old value of the variable. The returned value is saved in \emph{previous\_pragma\_executed\_} and identifies the caller id of the current pragma or function. \emph{current\_pragma\_executing\_} holds the reference to the pragma or function that is currently executing, it is used to track the caller id of each block and to create the call graph. 
 
 When the If completes, the \emph{ProfileTrack} object is destroyed and its destructor invoked. The destructor stops the timer and calculates the elapsed time of the block adding it to the children time of its caller block and it writes all the data in the log file, as shown in Code~\ref{xmllog}. At the end, the destructor, calls again \emph{ReplaceCurrentPragma()} passing to it \emph{previous\_pragma\_executing\_} and discarding the returned value.
 
@@ -1073,7 +1071,7 @@ As described in paragraph~\ref{schedulegeneration}, two versions of the scheduli
 \end{algorithmic}
 \caption{Pseudocode of the sequential algorithm which produces the schedule }
 \end{algorithm}
-\begin{algorithm}[H]
+\begin{algorithm}
 \begin{algorithmic}
 \Function{get\_optimal\_flow}{flow\_list, task\_list, level, optimal\_flow, NUM\_TASKS, MAX\_FLOWS, execution\_time, queue}
 \If {time.clock() $<$ execution\_time}
@@ -1352,7 +1350,7 @@ The program passes the tasks (\emph{Nested} object) to the run-time using the fu
 In the case that the task received by the run-time is not of type \emph{for} the execution is simpler as there is only one job to be allocated. The run-time checks which is the destination thread of the task and in case it is not the currently executing one it simply pushes the task in the thread's queue, invoking the function \emph{push()}. If instead the designated thread is the one that it is executing two possible scenarios open up: if the task is of type \emph{parallel}, \emph{sections} or \emph{single} the run-time directly executes it and then waits on the task’s barriers. If the task is of type \emph{section} or \emph{task} the run-time returns to the main program, notifying it to add the task to the \emph{todo\_job\_} queue. A call to \emph{launch\_todo\_job()} is inserted in the instrumented code, in the last line of each \emph{fx()} which simply scans the list of remaining jobs (\emph{queue$<$shared\_ptr$<$NestedBase$>>$ todo\_job\_}) executing them, if presen.
 
 The last two things left to explain are how a task is transformed in a job and how synchronization works. A task contains all the information needed to execute, but no methods to perform synchronization on it; for this reason the run-time support  embeds the \emph{NesteBase} object in a new structure. Code~\ref{jobin} shows the most relevant variables contained in \emph{JobIn}.
-
+\newpage
 \begin{lstlisting}[language=CCC, label=jobin]
 struct JobIn {
   shared_ptr<NestedBase> nested_base_;
@@ -1447,7 +1445,7 @@ The parallel execution graph is shown in \ref{teststructure}.
 \label{teststructure}
 \end{figure}
 
-The produced schedule in shown in code \ref{scheduletest}.
+One of the produced schedule in shown in code \ref{scheduletest}.
 
 \lstset{language=XML}
 \begin{lstlisting}[caption=Schedule test XML, label=scheduletest]
@@ -1455,27 +1453,12 @@ The produced schedule in shown in code \ref{scheduletest}.
 <Schedule>
   <Cores>6</Cores>
   <Pragma>
-    <id>68</id>
-    <Caller_id>0</Caller_id>
-    <Type>main</Type>
-    <Threads>
-      <Thread>0</Thread>
-    </Threads>
-    <Start_time>0</Start_time>
-    <Deadline>19963.5056647</Deadline>
-    <Barrier>
-      <id>87</id>
-    </Barrier>
-  </Pragma>
-  <Pragma>
     <id>87</id>
     <Caller_id>68</Caller_id>
     <Type>OMPParallelDirective</Type>
     <Threads>
       <Thread>0</Thread>
     </Threads>
-    <Start_time>0</Start_time>
-    <Deadline>19963.5056647</Deadline>
     <Barrier>
       <id>87</id>
       <id>89</id>
@@ -1488,8 +1471,6 @@ The produced schedule in shown in code \ref{scheduletest}.
     <Threads>
       <Thread>0</Thread>
     </Threads>
-    <Start_time>0</Start_time>
-    <Deadline>19963.5056647</Deadline>
     <Barrier>
       <id>91</id>
       <id>118</id>
@@ -1502,22 +1483,8 @@ The produced schedule in shown in code \ref{scheduletest}.
     <Threads>
       <Thread>0</Thread>
     </Threads>
-    <Start_time>19963.5056647</Start_time>
-    <Deadline>19999.9878313</Deadline>
   </Pragma>
-  <Pragma>
-    <id>167</id>
-    <Caller_id>91</Caller_id>
-    <Type>sx</Type>
-    <Threads>
-      <Thread>0</Thread>
-    </Threads>
-    <Start_time>19999.9878313</Start_time>
-    <Deadline>19999.9878313</Deadline>
-    <Barrier>
-      <id>169</id>
-    </Barrier>
-  </Pragma>
+...
   <Pragma>
     <id>169</id>
     <Caller_id>167</Caller_id>
@@ -1527,8 +1494,6 @@ The produced schedule in shown in code \ref{scheduletest}.
       <Thread>0</Thread>
       <Thread>1</Thread>
     </Threads>
-    <Start_time>19999.9878313</Start_time>
-    <Deadline>20000.0</Deadline>
     <Barrier>
       <id>169</id>
     </Barrier>
@@ -1540,21 +1505,6 @@ The produced schedule in shown in code \ref{scheduletest}.
     <Threads>
       <Thread>3</Thread>
     </Threads>
-    <Start_time>19963.5056647</Start_time>
-    <Deadline>19999.9656647</Deadline>
-  </Pragma>
-  <Pragma>
-    <id>150</id>
-    <Caller_id>118</Caller_id>
-    <Type>dx</Type>
-    <Threads>
-      <Thread>0</Thread>
-    </Threads>
-    <Start_time>19999.9656647</Start_time>
-    <Deadline>19999.9658092</Deadline>
-    <Barrier>
-      <id>152</id>
-    </Barrier>
   </Pragma>
   <Pragma>
     <id>152</id>
@@ -1565,8 +1515,6 @@ The produced schedule in shown in code \ref{scheduletest}.
       <Thread>5</Thread>
       <Thread>4</Thread>
     </Threads>
-    <Start_time>19999.9658092</Start_time>
-    <Deadline>20000.0</Deadline>
     <Barrier>
       <id>152</id>
     </Barrier>
@@ -1577,7 +1525,7 @@ The produced schedule in shown in code \ref{scheduletest}.
 
 \section{Results with statistics}
 
-The first test simply analyzed the completion time of the sequential program, the OpenMP version and the program rewritten using the framework. As seen from graph \ref{timegraph} and table \ref{timetable} the framework achieves the same statistics as OpenMP having an almost one scaling factor.
+Table \ref{timetable} illustrates the completion time of the sequential execution, the OpenMP version and the program rewritten using the framework. As seen from table \ref{timetable} and graph \ref{timegraph} the framework achieves the same statistics as OpenMP having an almost one scaling factor.
 
 \begin{figure}[H]
 \centering
@@ -1608,7 +1556,9 @@ The first test simply analyzed the completion time of the sequential program, th
 \end{center}
 \end{table}
 
-The different service times for each thread have been analyzed in each of the three different video qualities. The results are shown in the relative tables. A boxplot has been created to show the statistics of the service time of each thread. 
+The different service times, for each thread, have been analyzed in each of the three different video qualities. This time is given by the value between two consecutives frame outputs and its mean value and variance are shown in the relative tables; boxplots have been created to show their statistics. 
+
+All the results remain consistent for all the different input videos; each thread has similar statistics both in OpenMP and Soma. As expected from table \ref{timetable} the service time of OpenMP and Soma are almost the same; the only difference results in a lower variance in almost all cases, achieving half the OpenMP value in the majority. This result shows that the overhead introduced by the runtime support of Soma is almost constant gauranteeing the possibility of achieving real-time contrains. The boxplots represents all the measurements of the services times of each thread; it it possible to notice that each boxpolot shows some higher values due to the initial runtime overhed. OpenMp has almost always a constant value, while Soma has a higher variance on it.
 
 
 \begin{table}[H]
@@ -1663,7 +1613,7 @@ The different service times for each thread have been analyzed in each of the th
 & mean & variance & mean & variance & mean & variance \\
 \cline{2-7}
 \hline
-0 & 1.3263 & 0.1968 & 1.4226 & 0.0092 & 3.4987 & 0.0210  \\
+0 & 1.3263 & 0.1968 & 1.4226 & 0.0092 & 3.4987 & 0.0065  \\
 \hline
 1 & - & - & 1.4225 & 0.0090 & 1.4297 & 0.0065 \\
 \hline
@@ -1683,14 +1633,14 @@ The different service times for each thread have been analyzed in each of the th
 
 \begin{figure}[H]
 \centering
-\includegraphics[scale=0.55]{soma_time_720txtbox.png}
+\includegraphics[scale=0.55]{omp_time_720txtbox.png}
 \caption{Boxplot OpenMP 720p.}
 \label{box720omp}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[scale=0.55]{omp_time_720txtbox.png}
+\includegraphics[scale=0.55]{soma_time_720txtbox.png}
 \caption{Boxplot Soma 720p.}
 \label{box720soma}
 \end{figure}
@@ -1736,7 +1686,8 @@ The different service times for each thread have been analyzed in each of the th
 \label{box1080soma}
 \end{figure}
 
-The following graphs compare the jitter and time difference between the single cores' service time in the current framework and OpenMP.
+
+The following graphs compare the jitter and time difference between the single cores' service time in the current framework and OpenMP. In each graph the n-th images produces by each thread have been connected with a line to show this reasults. It can be seen that OpenMP produces an increasing delay between the left and right frames production while Soma tents to realign the frame output times whenever the delay between the threads is increasing. This property is very important since left and right frame should be produced at the same time and rate.
 
 \begin{figure}[H]
 \centering
@@ -1769,16 +1720,18 @@ The following graphs compare the jitter and time difference between the single c
 \begin{figure}[H]
 \centering
 \includegraphics[scale=0.3]{omp_1080_range_040.png}
-\caption{Service time of each core in a 0-40s interval at 1080p (OpenMP).}
+\caption{Service time of each core in a 0-60s interval at 1080p (OpenMP).}
 \label{omp1080jitter}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[scale=0.3]{soma_1080_range_040.png}
-\caption{Service time of each core in a 0-40s interval at 1080p (Soma).}
+\caption{Service time of each core in a 0-60s interval at 1080p (Soma).}
 \label{soma1080jitter}
 \end{figure}
+
+The obtained results are positive, but to get an extensive overview of the frameworks performance it should be necessary to test it on different applications and architectures to see how it reacts to the increase of the number of cores and the complexity of the applications.
 
 
 \chapter{Conclusions}
@@ -1809,6 +1762,12 @@ The main future development step consists in the substitution of the OpenMP prag
 
 An interestin evolution would consist in adding a feature for specifying periodic task structures, which consist of a periodic activation time and deadline, directly in the pragma directives, either with or without OpenMP. This is due to the fact that almost all \emph{real-time} programs consist of a majority of periodic tasks with some \emph{sporadic} tasks. The actual developed tool is already capable of executing periodic tasks, Code~\ref{periodictask}, by using an infinite for cycle with a timing control sequence nested inside which permits continuation or abortion.
 
+The schedule algorithm could also be improved with better heuristics in order to obtain lower computation times for "good" schedule solutions. Another approach would consist in the parallization of the algorithm by taking care of race condition which would occur with the current used data structures.
+
+The profiling step could extract more informations of the working platform to enhance the scheduling sequence and could check automatically different inputs to obtain the best results.
+
+As done in \cite{ompss} could be possible to exetend the framework with the capability to support asynchronous parallelism and heterogeneity (devices like GPUs). Paragraph \ref{patch} shows that it is already feasible to patch Clang to support new OpenMP clauses; to address GPUs the code has to be rewritten using CUDA or OpenCL directives.
+
 \begin{lstlisting}[language=CCC, caption=Example of a periodic task., label=periodictask]
 #pragma omp parallel for
 for(...) {
@@ -1822,12 +1781,6 @@ for(...) {
 }
 
 \end{lstlisting}
-
-The schedule algorithm could also be improved with better heuristics in order to obtain lower computation times for "good" schedule solutions. Another approach would consist in the parallization of the algorithm by taking care of race condition which would occur with the current used data structures.
-
-The profiling step could extract more informations of the working platform to enhance the scheduling sequence and could check automatically different inputs to obtain the best results.
-
-As done in \cite{ompss} could be possible to exetend the framework with the capability to support asynchronous parallelism and heterogeneity (devices like GPUs). Paragraph \ref{patch} shows that it is already feasible to patch Clang to support new OpenMP clauses; to address GPUs the code has to be rewritten using CUDA or OpenCL directives.
 
 \begin{thebibliography}{30}
 \bibitem{bbw2} G. Buttazzo, E. Bini, Y. Wu. \emph{Partitioning real-time applications over multi-core reservations}. Scuola Superiore Sant’Anna, Pisa, Italy, 2009
