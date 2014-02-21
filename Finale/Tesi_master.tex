@@ -171,7 +171,7 @@ Several major software companies developed their own multi-thread libraries like
 
 Lately appeared also automatic parallelization tools; these softwares allow to automatically transform a sequential code into an equivalent parallel one, like the Intel C++ compiler \cite{icc} and Parallware \cite{parallware}.  
 
-Lastly it is worth to mention briefly GPUs, that have become accessible to programmers with the release of tools like Nvidia's CUDA or the OpenCL standard. These libraries allow the user to easily run code on the GPU; of course the program to run must have some particular features because GPU are still not general purpose. 
+Lastly it is worth to mention briefly GPUs, that have become accessible to programmers with the release of tools like Nvidia's CUDA or the OpenCL standard. These libraries allow the user to easily run code on the GPU; of course the program to run must have some particular features because GPU are still not general purpose. Usually GPUs are used for data parallelism given the great number of processing cores. The main disadvantage relies in the fact that the same operation has to be applied to all the data in a SIMD approach. 
 
 The framework needs two multi-threaded libraries, one used by the input program to describe its parallel sections and the other to run the input program with the static custom schedule, in described framework.
 
