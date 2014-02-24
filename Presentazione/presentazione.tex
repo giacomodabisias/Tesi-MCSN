@@ -1,0 +1,192 @@
+
+\documentclass[xcolor=dvipsnames]{beamer}
+
+\usetheme{default}
+\usecolortheme[named=Brown]{structure} 
+\setbeamertemplate{frametitle}[default][] 
+\definecolor{lightbrown}{rgb}{0.933,0.890,0.773}
+
+\setbeamerfont{section in head/foot}{size={\fontsize{8}{8}}}
+\setbeamercolor{section in head/foot}{bg=lightbrown!5}
+\setbeamercolor{head/foot}{ bg=Brown!45}
+\setbeamercolor{frametitle}{fg=Brown, bg=lightbrown!30}
+
+
+\setbeamertemplate{headline}{%
+\leavevmode%
+  \hbox{%
+    \begin{beamercolorbox}[wd=\paperwidth,ht=3.5ex,dp=1.125ex, plus1fil]{palette quaternary}%
+    \insertsectionnavigationhorizontal{\paperwidth}{}{\hskip 0cm}
+    \end{beamercolorbox}%
+  }
+}
+
+\makeatletter
+    \newenvironment{withoutheadline}{
+        \setbeamertemplate{headline}[default]
+        \def\beamer@entrycode{\vspace*{-\headheight}}
+    }{}
+\makeatother
+
+
+\logo{\includegraphics[height=0.8cm]{unipi}\hspace{0.1cm}\includegraphics[height=0.8cm]{anna}}
+\setbeamertemplate{navigation symbols}{}
+
+
+\title[framework]{\includegraphics[height=1.3cm]{unipiinit2}\includegraphics[width=0.5cm]{space}\includegraphics[height=1.3cm]{annainit}\newline \newline
+A Framework for static allocation of parallel OpenMP code on multi-core platforms\\}
+\author[]{Giacomo Dabisias, Filippo Brizzi}
+\institute[unipi]{
+  Universit\`a degli studi di Pisa,\\
+  Scuola Superiore Sant'Anna\\
+  Pisa,Italy\\[1ex]
+
+}
+
+
+
+\date[February 2014]{February 28, 2014}
+
+\begin{document}
+
+\begin{withoutheadline}
+\begin{frame}
+  \titlepage
+\end{frame}
+\end{withoutheadline}
+
+\begin{section}{Introduction}
+\begin{frame}{Introduction}
+\end{frame}
+\end{section}
+
+\begin{frame}{\hskip 0.3cm Context and motivations}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm OpenMP}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm OpenMP - Structure }
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm OpenMP - (Directives \& clauses) }
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm OpenMP - (Semantics) }
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm OpenMP - Framework subset}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Clang}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Clang - LLVM}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Clang - AST}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Clang - (Structure)}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Clang - (Example)}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Clang - (Traversing the AST)}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Clang - OpenMP}
+\end{frame}
+
+\begin{section}{Framework}
+\begin{frame}{\hskip 0.3cm The framework}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm General Design}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Big-graph image}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Simple example}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Pragma extraction}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Intrumentation for profiling}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Intrumentation for profiling - Annotated example}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Flow graph}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Scheduler}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Scheduler - Search tree}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Scheduler - Constraints check}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Scheduler - (Cetto \& Chetto)}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Final execution}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Final execution - Intrumentation}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Final execution - Run-time}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Fianl execution - (thread pool)}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Final execution - (multiple job queues)}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Final execution - (synchronization)}
+\end{frame}
+
+\end{section}
+\begin{section}{Test}
+
+\begin{frame}{\hskip 0.3cm General structure}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm General structure -(graph of the test code)}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Results}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Results - (some tables and graphs)}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Results - (total completion time)}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Results - (service time - boxplot)}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Results - (Jitter)}
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Results - Comments}
+\end{frame}
+
+\end{section}
+\begin{section}{Conclusion}
+
+\begin{frame}{\hskip 0.3cm }
+\end{frame}
+
+\end{section}
+
+\end{document}
