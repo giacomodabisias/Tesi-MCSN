@@ -338,11 +338,12 @@ TranslationUnitDecl
         `-DeclRefExpr <col:10> 'int' lvalue Var 'val' 'int'
 \end{lstlisting}
 
-\subsection{Clang and OpenMP}
+
 Clang supports the insertion of custom code through the \emph{Rewriter} class. This class provides several methods that allow, specifying a \emph{SourceLocation}, to insert, delete and replace code and it also allows to replace a \emph{Stmt} object with another one. The programmer cannot know a priori the structure of the input source code, so the best way to insert the custom text, in the correct position, is during the parsing of the AST. It is in fact possible to access each node’s start and end \emph{SourceLocations} reference, to transform them in a line plus column number and insert the text at the end of the line or at line above or below, as needed. 
 
 The text to be rewritten and its position are stored, during the parsing of the AST, in a buffer inside the \emph{Rewriter} object; when the parsing is completed a new source file is generated with the buffer’s data inserted in it.  
 
+\subsection{Clang and OpenMP}
 Clang’s support to pragmas and OpenMP is really recent. Intel provided an unofficial patched version of the original Clang, which fully supports the OpenMP 3.3 standard, in July 2013 and the patch has not yet been inserted in the official release. Although it is not an official release Intel, has worked inline with the Clang community principle and design strategies and it also produced a complete Doxygen documentation of the code. This patch works jointly with the Intel OpenMP Runtime Library \cite{intelomprtl} which is open-source. 
 
 For what concerns the support to generic pragmas the only remarkable work, that goes close to this goal is the one of Simone Pellegrini. He indeed implemented a tool (Clomp \cite{clomp}) to support OpenMP pragmas in Clang. Clomp is implemented in a modular and layered faschion which this implies that the same structure can be easily used to support customized pragmas.
