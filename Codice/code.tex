@@ -1,0 +1,4125 @@
+\documentclass[a4paper,11pt,twoside]{book}
+\usepackage{latexsym}
+\usepackage{braket}
+\usepackage{graphicx}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{verbatim}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{float}
+\usepackage{geometry}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{pdfpages}
+
+\pagestyle{plain}
+
+
+\definecolor{blue}{RGB}{0,0,180}
+\definecolor{darkblue}{RGB}{72,61,139} 
+\definecolor{green}{rgb}{0,0.4,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{darkgray}{rgb}{0.4,0.4,0.4}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+\definecolor{black}{rgb}{0,0,0}
+\definecolor{purple}{RGB}{138,43,226}
+\definecolor{ocra}{RGB}{218,165,32}
+\definecolor{maroon}{rgb}{0.5,0,0}
+\definecolor{darkgreen}{rgb}{0,0.5,0}
+\definecolor{indianred}{RGB}{178,34,34}
+
+\lstdefinelanguage{XML}
+{
+  basicstyle=\ttfamily,
+  frame=single,            
+  captionpos=b,       
+  breaklines=true,       
+ numbers=left,                    
+  numbersep=5pt,                   
+  numberstyle=\tiny\color{gray},                               
+  morestring=[s]{"}{"},
+  morecomment=[s]{?}{?},
+  morecomment=[s]{!--}{--},
+  commentstyle=\color{darkgreen},
+  moredelim=[s][\color{black}]{>}{<},
+  moredelim=[s][\color{green}]{\ }{=},
+  stringstyle=\color{ocra},
+  identifierstyle=\color{maroon}
+}
+
+\lstdefinelanguage{CCC}{ 
+  breakatwhitespace=false,         
+  breaklines=true,                 
+  %captionpos=t,                   
+  frame=single,                    
+  keepspaces=true,                 
+  numbers=left,                    
+  numbersep=5pt,                   
+  numberstyle=\tiny\color{gray}, 
+  rulecolor=\color{black},         
+  showtabs=false,                  
+  stepnumber=1,                    
+  tabsize=2,                       
+  title=\lstname,                   
+  basicstyle=\ttfamily,
+  stringstyle=\color{ocra}\ttfamily,
+  morestring=[b]",
+  identifierstyle=\color{black}\ttfamily,
+  morecomment=[l][\color{maroon}]{pragma\ },
+  morecomment=[l][\color{gray}]{//},
+  morecomment=[s][\color{gray}]{/*}{*/},
+  keywordstyle=[1]\color{blue},
+  keywords=[1]{int,float,char, class, void, unsigned, struct, bool},
+  keywordstyle=[0]\color{indianred},
+  keywords=[0]{include,for,if,while,return,public,break}
+}
+
+
+\renewcommand{\lstlistingname}{Code}
+\geometry{left=2cm}
+\geometry{foot=1cm}
+\geometry{top=1cm}
+\geometry{right=2cm}
+\linespread{1}
+\author{Giacomo Dabisias, Filippo Brizzi}
+\title{A framework for static allocation of parallel OpenMp code on multi-core platforms}
+\frenchspacing
+
+
+\begin{document}
+\tableofcontents
+\chapter{C++}
+\section{Include files}
+
+\begin{lstlisting}[language=CCC, caption=driver/compiler.h]
+#include "llvm/Support/Host.h"
+#include "llvm/ADT/IntrusiveRefCntPtr.h"
+
+#include "clang/Frontend/CompilerInstance.h"
+#include "clang/Basic/TargetOptions.h"
+#include "clang/Basic/TargetInfo.h"
+#include "clang/Basic/FileManager.h"
+#include "clang/Basic/SourceManager.h"
+#include "clang/Lex/Preprocessor.h"
+#include "clang/Lex/Lexer.h"
+#include "clang/Basic/Diagnostic.h"
+#include "clang/AST/ASTContext.h"
+
+/*
+ * ---- Custom class to instantiate an object of clang::CompilerInstance with the options and the file
+ * 		passed with argv.
+ */
+class ClangCompiler {
+
+private:
+	clang::CompilerInstance compiler_;
+
+public:
+	ClangCompiler(int argc, char **argv);
+	
+	clang::SourceManager &getSourceManager() { return compiler_.getSourceManager(); }
+	clang::DiagnosticConsumer getDiagnosticClient() { return compiler_.getDiagnosticClient(); }
+	clang::LangOptions getLangOpts() { return compiler_.getLangOpts(); }
+	clang::Preprocessor &getPreprocessor() { return compiler_.getPreprocessor(); }
+	clang::ASTContext &getASTContext() { return compiler_.getASTContext(); }
+	clang::FileManager &getFileManager() { return compiler_.getFileManager(); }
+
+};
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=driver/program.h]
+#include "driver/compiler.h"
+#include "utils/source_locations.h"
+#include "pragma_handler/Root.h"
+
+#include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
+#include "clang/Basic/DiagnosticOptions.h"
+#include "clang/Frontend/TextDiagnosticPrinter.h"
+#include "clang/AST/ASTConsumer.h"
+#include "clang/Parse/Parser.h"
+#include "clang/Parse/ParseAST.h"
+#include "clang/Rewrite/Core/Rewriter.h"
+#include "llvm/Support/raw_ostream.h"
+#include <string>
+#include <iostream>
+
+/*
+ * ---- Instantiate a compiler object and start the parser. 
+ */
+class Program {
+/* Contains the list of all the pragmas in the source code */
+std::vector<clang::OMPExecutableDirective *> *pragma_list_;
+/* Contains the list of all the functions defined in the source code (for profiling pourpuse) */
+std::vector<clang::FunctionDecl *> *function_list_;
+
+/* To create the profiling code and the list of pragmas */
+void ParseSourceCode(std::string fileName);
+/* To create the final source code to be used with the scheduler */
+void ParseSourceCode(std::string fileName, std::vector<Root *> *root_vect);
+
+public:
+  /* To create the profiling code and the list of pragmas */
+	Program(int argc, char **argv) : ccompiler_(argc, argv), pragma_list_(NULL), function_list_(NULL) {
+		ParseSourceCode(argv[argc - 1]);
+	}
+
+  /* To create the final source code to be used with the scheduler */
+  Program(int argc,char **argv, std::vector<Root *> *root_vect) : ccompiler_(argc, argv), pragma_list_(NULL), function_list_(NULL) {
+    ParseSourceCode(argv[argc - 1], root_vect);
+  }
+
+	std::vector<clang::OMPExecutableDirective *> *getPragmaList() { return pragma_list_; }
+	std::vector<clang::FunctionDecl *> *getFunctionList() { return function_list_; }
+
+	ClangCompiler ccompiler_;
+};
+
+
+/*
+ * ---- Recursively visit the AST of the source code to exctract the pragmas and rewrite it
+ *      adding profile call.
+ */
+class ProfilingRecursiveASTVisitor: public clang::RecursiveASTVisitor<ProfilingRecursiveASTVisitor> {
+
+  /* Class to rewrite the code */
+  clang::Rewriter &rewrite_profiling_;
+  
+  const clang::SourceManager& sm;
+
+  bool include_inserted_;
+  clang::Stmt *previous_stmt_;
+
+  /* Add profiling call to a pragma stmt */
+  void RewriteProfiling(clang::Stmt *s);
+  /* Given a ForStmt retrieve the value of the condition variable, to know how many cycles will
+     do the for */
+  std::string ForConditionVarValue(const clang::Stmt *s);
+  /* For a given stmt retrive the line of the function where it is defined */
+  unsigned GetFunctionLineForPragma(clang::SourceLocation sl);
+
+public:
+  ProfilingRecursiveASTVisitor(clang::Rewriter &r_profiling, const clang::SourceManager& sm) : 
+          rewrite_profiling_(r_profiling), sm(sm), include_inserted_(false), previous_stmt_(NULL) { }
+  
+  /* This function is called for each stmt in the AST */
+  bool VisitStmt(clang::Stmt *s);
+  /* This function is called for each function in the AST */
+  bool VisitFunctionDecl(clang::FunctionDecl *f);
+  bool VisitDecl(clang::Decl *decl);
+  std::vector<clang::OMPExecutableDirective *> pragma_list_;
+  std::vector<clang::FunctionDecl *> function_list_;
+    
+};
+
+/*
+ * ---- Is responible to call ProfilingRecurseASTVisitor.
+ */
+class ProfilingASTConsumer : public clang::ASTConsumer { 
+public:
+
+  ProfilingASTConsumer(clang::Rewriter &r_profiling, const clang::SourceManager& sm) : 
+          recursive_visitor_(r_profiling, sm) { }
+  
+  /* Traverse the AST invoking the RecursiveASTVisitor functions */
+  virtual bool HandleTopLevelDecl(clang::DeclGroupRef d) {
+    typedef clang::DeclGroupRef::iterator iter;
+    for (iter b = d.begin(), e = d.end(); b != e; ++b) {
+      recursive_visitor_.TraverseDecl(*b);
+    } 
+    return true; 
+  }
+
+  ProfilingRecursiveASTVisitor recursive_visitor_;
+  std::vector<clang::OMPExecutableDirective *> pragma_list_;
+  std::vector<clang::FunctionDecl *> function_list_;
+};
+
+
+/*
+ * ---- Recursively visit the AST and repleace each pragma with a function call.
+ */
+class TransformRecursiveASTVisitor: public clang::RecursiveASTVisitor<TransformRecursiveASTVisitor> {
+
+  clang::Rewriter &rewrite_pragma_;
+  
+  const clang::SourceManager& sm;
+
+  /* Needed because the parse retrive twice each pragma stmt */
+  clang::Stmt *previous_stmt_;
+  /* Check if the inlude command has been already inserted*/
+  bool include_inserted_;
+
+  std::vector<Root *> *root_vect_;
+
+  void RewriteOMPPragma(clang::Stmt *associated_stmt, std::string pragma_name);
+  void RewriteOMPBarrier(clang::OMPExecutableDirective *omp_stmt);
+  std::string RewriteOMPFor(Node *n);
+  
+  /* Given a pragma stmt retrive the Node object that contains all its info */
+  Node *GetNodeObjForPragma(clang::Stmt *s);
+  /* Called by GetNodeObjForPragma is used because the Node objs are saved in a tree */
+  Node *RecursiveGetNodeObjforPragma(Node *n, unsigned stmt_start_line);
+
+
+public:
+  TransformRecursiveASTVisitor(clang::Rewriter &r_pragma_, std::vector<Root *> *root_vect, const clang::SourceManager& sm) : 
+          rewrite_pragma_(r_pragma_), root_vect_(root_vect), sm(sm), include_inserted_(false), previous_stmt_(NULL) { }
+  
+  bool VisitStmt(clang::Stmt *s);
+  bool VisitFunctionDecl(clang::FunctionDecl *f);
+  bool VisitDecl(clang::Decl *decl);
+};
+
+/*
+ * ---- Responsible to invoke TransformRecursiveASTVisitor.
+ */
+class TransformASTConsumer : public clang::ASTConsumer { 
+public:
+
+  TransformASTConsumer(clang::Rewriter &RPragma, std::vector<Root *> *rootVect, const clang::SourceManager& sm) : 
+          recursive_visitor_(RPragma, rootVect, sm) { }
+  
+  virtual bool HandleTopLevelDecl(clang::DeclGroupRef d) {
+    typedef clang::DeclGroupRef::iterator iter;
+    for (iter b = d.begin(), e = d.end(); b != e; ++b) {
+      recursive_visitor_.TraverseDecl(*b);
+    } 
+    return true; 
+  }
+
+  TransformRecursiveASTVisitor recursive_visitor_;
+};
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=pragma\_handler/Node.h]
+#include "pragma_handler/ForNode.h"
+
+/* Contains info about function */
+struct FunctionInfo {
+	clang::FunctionDecl *function_decl_;
+
+	unsigned function_start_line_;
+	unsigned function_end_line_;
+	std::string function_name_;
+	std::string function_return_type_;
+	int num_params_;
+	/* Matrix Nx2. Contains the list of the parameter of the functions: type name */
+	std::string **function_parameters_;
+
+	std::string function_class_name_;
+};
+
+/*
+ * ---- Contains all the relevant information of a given pragma.
+ */
+class Node {
+
+private:
+
+	clang::OMPExecutableDirective *pragma_stmt_;
+
+/* Stmt start and end line in the source file */
+	std::string file_name_;
+	int start_line_, start_column_;
+	int end_line_, end_column_;
+
+/*Line number of the function that contains this pragma */
+	FunctionInfo parent_funct_info_;
+
+/* Variables to construct the tree */
+	Node *parent_node_;
+
+	/*Pragma name with all the parameters */
+	//std::string pragma_type_;
+
+/* Function to exctract all the parameters of the pragma */
+	void setPragmaClauses(clang::SourceManager& sm);
+
+public:
+	/*Pragma name with all the parameters */
+	std::string pragma_type_;
+
+	bool profiled_ = false;
+
+	ForNode *for_node_;
+
+	std::vector<Node *> *children_vect_;
+
+	typedef std::map<std::string, std::string> VarList_;
+	std::map<std::string, VarList_> *option_vect_;
+
+	Node(clang::OMPExecutableDirective *pragma_stmt, clang::FunctionDecl *funct_decl, clang::SourceManager& sm);
+
+	void setSourceLocation(const clang::SourceManager& sm);
+
+/*
+ * ---- Set the line, name, return type and parameters of the function containig the pragma ----
+ */
+	void setParentFunction(clang::FunctionDecl *funct_decl, const clang::SourceManager& sm);
+
+	FunctionInfo getParentFunctionInfo() { return parent_funct_info_; }
+
+	void AddChildNode(Node *n) { children_vect_->push_back(n); }
+
+	void setParentNode(Node *n) { parent_node_ = n; }
+	Node* getParentNode() { return parent_node_; }
+
+	int getEndLine() { return end_line_; }
+	int getStartLine() { return start_line_; }
+
+	void CreateXMLPragmaNode(tinyxml2::XMLDocument *xml_doc, tinyxml2::XMLElement *pragmas_element);
+	void CreateXMLPragmaOptions(tinyxml2::XMLDocument *xml_doc,tinyxml2:: XMLElement *options_element);
+};
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=pragma\_handler/ForNode.h]
+#include "xml_creator/tinyxml2.h"
+
+#include "utils/source_locations.h"
+#include "clang/AST/ASTConsumer.h"
+#include "clang/Sema/Lookup.h"
+#include "clang/Frontend/CompilerInvocation.h"
+#include "clang/AST/ASTContext.h"
+#include "clang/Sema/Scope.h"
+#include "clang/Parse/ParseAST.h"
+
+#include <iostream>
+#include <string>
+#include <stdio.h>
+#include <stdlib.h>
+
+class ForNode {
+
+public:
+	clang::ForStmt *for_stmt_;
+
+	/* Loop variable */
+	std::string loop_var_;
+	std::string loop_var_type_;
+
+	/* Loop variable initial value: (number or variable) */
+	int loop_var_init_val_;
+	bool loop_var_init_val_set_;
+	std::string loop_var_init_var_;
+
+	/* Loop condition */
+	std::string condition_op_;
+	int condition_val_;
+	bool condition_val_set_;
+	std::string condition_var_;
+
+	/* Loop increment */
+	std::string increment_op_;
+	int increment_val_;
+	bool increment_val_set_;
+	std::string increment_var_;
+
+	void ExtractForParameters(clang::ForStmt *for_stmt);
+
+	void ExtractForInitialization(clang::ForStmt *for_stmt);
+	void ExtractForCondition(clang::ForStmt *for_stmt);
+	void ExtractForIncrement(clang::ForStmt *for_stmt);
+
+
+	ForNode(clang::ForStmt *for_stmt);
+	void CreateXMLPragmaFor(tinyxml2::XMLDocument *xml_doc, tinyxml2::XMLElement *for_element);
+
+};
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=pragma\_handler/Root.h]
+#include "pragma_handler/Node.h"
+
+/*
+ * ---- It's the root node of the annidation tree of the pragmas in a specific function 
+ * 		and contains the first level pragmas.
+ */
+class Root {
+private:	
+	FunctionInfo function_info_;
+
+	Node *last_node_;
+
+public:
+	Root(Node *n, FunctionInfo funct_info);
+
+	std::vector<Node *> *children_vect_;
+
+	void setLastNode(Node *n) {last_node_ = n; };
+	Node* getLastNode() { return last_node_; };
+
+	void AddChildNode(Node *n) { children_vect_->push_back(n); };
+
+	void CreateXMLFunction(tinyxml2::XMLDocument *xml_doc);
+
+	unsigned getFunctionLineStart(){ return function_info_.function_start_line_; }
+	unsigned getFunctionLineEnd() {return function_info_.function_end_line_; }
+
+};
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=utils/source\_locations.h]
+#include <string>
+#include <clang/Basic/SourceLocation.h>
+#include <clang/Basic/SourceManager.h>
+#include <sstream>
+
+#include <llvm/Support/raw_ostream.h>
+
+namespace clang {
+class SourceLocation;
+class SourceRange;
+class SourceManager;
+}
+
+namespace utils {
+
+std::string FileName(clang::SourceLocation const& l, clang::SourceManager const& sm);
+
+std::string FileId(clang::SourceLocation const& l, clang::SourceManager const& sm);
+
+unsigned Line(clang::SourceLocation const& l, clang::SourceManager const& sm);
+
+std::pair<unsigned, unsigned> Line(clang::SourceRange const& r, clang::SourceManager const& sm);
+
+unsigned Column(clang::SourceLocation const& l, clang::SourceManager const& sm);
+
+std::pair<unsigned, unsigned> Column(clang::SourceRange const& r, clang::SourceManager const& sm);
+
+std::string location(clang::SourceLocation const& l, clang::SourceManager const& sm);
+
+}
+\end{lstlisting}
+
+\section{Source files}
+
+\begin{lstlisting}[language=CCC, caption=main.cpp]
+int main(int argc, char **argv) { 
+
+	if(argc < 2) {
+		llvm::errs() << "Usage: Source_exctractor [<options>] <filename>\n";
+     	return 1;
+	}
+/*
+ * ---- Create a clang::compiler object and launch the parser saving the pragma stmt. 
+ * 		Rewrite the sourcecode adding profiling call.
+ */
+	Program p_parser(argc, argv);
+
+/*
+ * ---- With the information exctracted by the parser create a linked list tree of objects containing
+ *		all the necessary information of the pragmas.
+ */
+	std::vector<Root *> *root_vect = CreateTree(program.getPragmaList(), program.getFunctionList(), program.ccompiler_.getSourceManager());
+/*
+ * ---- Using the tree above create an xml file containing the pragma info. This file is used to produce the scheduler.
+ */
+	CreateXML(root_vect, argv[argc - 1]);
+
+	for(std::vector<Root *>::iterator itr = root_vect->begin(); itr != root_vect->end(); ++itr) 
+		(*itr)->VisitTree();
+
+/*
+ * ---- Parse the sourcecode and rewrite it substituting pragmas with function calls. This new file
+ * 		will be used with the scheduler to produce the final output.
+ */
+	Program p_rewriter(argc, argv, root_vect);
+
+	return 0;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=driver/compiler.cpp]
+#include "driver/compiler.h"
+
+using namespace clang;
+
+ClangCompiler::ClangCompiler(int argc, char **argv) {
+
+  DiagnosticOptions diagnosticOptions;
+  compiler_.createDiagnostics();
+
+  /* Create an invocation that passes any flags to preprocessor */
+  CompilerInvocation *Invocation = new CompilerInvocation;
+  CompilerInvocation::CreateFromArgs(*Invocation, argv + 1, argv + argc,
+                                      compiler_.getDiagnostics());
+  compiler_.setInvocation(Invocation);
+
+  /* Set default target triple */
+  llvm::IntrusiveRefCntPtr<TargetOptions> pto( new TargetOptions());
+  pto->Triple = llvm::sys::getDefaultTargetTriple();
+  llvm::IntrusiveRefCntPtr<TargetInfo> pti(TargetInfo::CreateTargetInfo(compiler_.getDiagnostics(), pto.getPtr()));
+  compiler_.setTarget(pti.getPtr());
+
+  compiler_.createFileManager();
+  compiler_.createSourceManager(compiler_.getFileManager());
+
+  /* Add default search path for the compiler */
+  HeaderSearchOptions &headerSearchOptions = compiler_.getHeaderSearchOpts();
+
+  headerSearchOptions.AddPath("/usr/local/include",
+	          clang::frontend::Angled,
+	          false,
+	          false);
+
+	headerSearchOptions.AddPath("/usr/include",
+	          clang::frontend::Angled,
+	          false,
+	          false);
+
+	headerSearchOptions.AddPath("/usr/lib/gcc/x86_64-linux-gnu/4.8/include",
+	          clang::frontend::Angled,
+	          false,
+	          false);
+
+	headerSearchOptions.AddPath("/usr/include/x86_64-linux-gnu",
+	          clang::frontend::Angled,
+	          false,
+	          false);
+  headerSearchOptions.AddPath("/usr/include/c++/4.8/",
+            clang::frontend::Angled,
+            false,
+            false);
+
+  headerSearchOptions.AddPath("/usr/include/x86_64-linux-gnu/c++/4.8/",
+            clang::frontend::Angled,
+            false,
+            false);
+
+
+  /* Allow C++ code to get rewritten */
+  clang::LangOptions langOpts;
+  langOpts.GNUMode = 1; 
+  langOpts.CXXExceptions = 1; 
+  langOpts.RTTI = 1; 
+  langOpts.Bool = 1; 
+  langOpts.CPlusPlus = 1; 
+  Invocation->setLangDefaults(langOpts,
+                              clang::IK_CXX,
+                              clang::LangStandard::lang_cxx0x);
+
+  compiler_.createPreprocessor();
+  compiler_.getPreprocessorOpts().UsePredefines = false;
+
+  compiler_.createASTContext();
+
+  /* Initialize the compiler and the source manager with a file to process */
+  std::string fileName(argv[argc - 1]);  
+  const FileEntry *pFile = compiler_.getFileManager().getFile(fileName);
+  compiler_.getSourceManager().createMainFileID(pFile);
+  compiler_.getDiagnosticClient().BeginSourceFile(compiler_.getLangOpts(), &compiler_.getPreprocessor());
+
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=driver/program.cpp]
+#include "driver/program.h"
+
+void Program::ParseSourceCode(std::string file_name) {
+
+  /* Convert <file>.c to <file_profile>.c */
+  std::string out_filename_profile (file_name);
+  size_t ext = out_filename_profile.rfind(".");
+  if (ext == std::string::npos)
+  	ext = out_filename_profile.length();
+  out_filename_profile.insert(ext, "_profile");
+
+  llvm::errs() << "Output to: " << out_filename_profile << "\n";
+  std::string out_error_info;
+  llvm::raw_fd_ostream out_file_profile(out_filename_profile.c_str(), out_error_info, 0);
+
+  /* Create the rewriter object to create the profiling file */
+  clang::Rewriter rewrite_profiling;
+  rewrite_profiling.setSourceMgr(ccompiler_.getSourceManager(), ccompiler_.getLangOpts());
+  
+  ProfilingASTConsumer ast_consumer(rewrite_profiling, ccompiler_.getSourceManager());
+  /* Parse the AST with the custom ASTConsumer */
+  clang::ParseAST(ccompiler_.getPreprocessor(), &ast_consumer, ccompiler_.getASTContext());
+	ccompiler_.getDiagnosticClient().EndSourceFile();
+
+  /* Save the pragma and function list */
+	pragma_list_ = new std::vector<clang::OMPExecutableDirective *>(ast_consumer.recursive_visitor_.pragma_list_);
+	function_list_ = new std::vector<clang::FunctionDecl *>(ast_consumer.recursive_visitor_.function_list_);
+
+  /*Output rewritten source code into a new file */
+	const clang::RewriteBuffer *rewrite_buf_profiling = 
+      rewrite_profiling.getRewriteBufferFor(ccompiler_.getSourceManager().getMainFileID());  	
+  
+  out_file_profile << std::string(rewrite_buf_profiling->begin(), rewrite_buf_profiling->end());
+  out_file_profile.close();
+
+}
+
+bool ProfilingRecursiveASTVisitor::VisitDecl(clang::Decl *decl) {
+
+  clang::SourceLocation cxx_start_src_loc = decl->getLocStart();
+  if(sm.getFileID(cxx_start_src_loc) == sm.getMainFileID() 
+      && clang::isa<clang::CXXRecordDecl>(decl)
+      && include_inserted_ == false) {
+    include_inserted_ = true;
+    std::string text_include = 
+      "#include \"profile_tracker/profile_tracker.h\"\n";
+    rewrite_profiling_.InsertText(cxx_start_src_loc, text_include, true, false);
+  }
+
+  return true;
+}
+
+/*
+ * ---- Insert the call to the profilefunction tracker to track the execution time of each funcion.
+ */
+bool ProfilingRecursiveASTVisitor::VisitFunctionDecl(clang::FunctionDecl *f) {     
+    
+  clang::SourceLocation start_src_loc = f->getLocStart();
+  unsigned funct_start_line = utils::Line(start_src_loc, sm);
+
+
+  /* Skip function belonging to external include file and not defined function */
+  if(sm.getFileID(start_src_loc) == sm.getMainFileID() && f->hasBody() == true) {
+  	
+    function_list_.push_back(f);
+
+    /* Include the path to ProfileTracker.h */
+    if(include_inserted_ == false) {
+      std::string text_include = 
+      "#include \"profile_tracker/profile_tracker.h\"\n";
+      
+      rewrite_profiling_.InsertText(start_src_loc, text_include, true, false);
+      include_inserted_ = true;
+    } 
+
+    start_src_loc = f->getBody()->getLocStart();
+  	unsigned start_line = utils::Line(start_src_loc, sm);
+    clang::SourceLocation new_start_src_loc = sm.translateLineCol(sm.getMainFileID(), start_line + 1, 1);
+    std::stringstream text_profiling;
+    text_profiling << "if( ProfileTracker x = ProfileTrackParams(" << funct_start_line << ", 0)) {\n";
+    
+    /* Insert the if in the first line of the function definition */
+    rewrite_profiling_.InsertText(new_start_src_loc, text_profiling.str(), true, false);
+
+    clang::SourceLocation end_src_loc = f->getLocEnd();
+    std::stringstream text_end_bracket;
+    text_end_bracket << "}\n";
+    /* Close the if bracket at the end of the function */
+    rewrite_profiling_.InsertText(end_src_loc, text_end_bracket.str(), true, false);
+  }
+
+  return true; 
+}
+
+bool ProfilingRecursiveASTVisitor::VisitStmt(clang::Stmt *s) {
+
+	clang::SourceLocation start_src_loc = s->getLocStart();
+	if(sm.getFileID(start_src_loc) == sm.getMainFileID()) {
+      /* We want just the OpenMP stmt and no duplicate */
+  		if (clang::isa<clang::OMPExecutableDirective>(s) && s != previous_stmt_) {
+  			previous_stmt_ = s;
+  			clang::OMPExecutableDirective *omp_stmt = static_cast<clang::OMPExecutableDirective *>(s);
+  			pragma_list_.push_back(omp_stmt);
+  			
+        clang::Stmt *associated_stmt = omp_stmt->getAssociatedStmt();
+        if(associated_stmt) {
+          clang::Stmt *captured_stmt = static_cast<clang::CapturedStmt *>(associated_stmt)->getCapturedStmt();
+          /* In the case of #omp parallel for we have to go down two level befor finding the ForStmt */
+  		    if(strcmp(captured_stmt->getStmtClassName(), "OMPForDirective") != 0)
+            RewriteProfiling(captured_stmt);
+        }
+      }
+  	}
+  	
+  return true;
+}
+
+void ProfilingRecursiveASTVisitor::RewriteProfiling(clang::Stmt *s) {
+  	
+  	clang::SourceLocation start_src_loc = s->getLocStart();
+  	unsigned pragma_start_line = utils::Line(start_src_loc,sm);
+  	unsigned function_start_line = GetFunctionLineForPragma(s->getLocStart());
+
+    std::stringstream text_profiling;
+    if(clang::isa<clang::ForStmt>(s)) {
+      std::string condition_var_value = ForConditionVarValue(s);
+      //std::string conditionVar = "";
+      text_profiling << "if( ProfileTracker x = ProfileTrackParams(" 
+          << function_start_line << ", " << pragma_start_line << ", " << condition_var_value << "))\n";
+      rewrite_profiling_.InsertText(start_src_loc, text_profiling.str(), true, true);
+
+    } else {
+	    text_profiling << "if( ProfileTracker x = ProfileTrackParams(" 
+          << function_start_line << ", " << pragma_start_line << "))\n";
+      rewrite_profiling_.InsertText(start_src_loc, text_profiling.str(), true, true);
+    }
+
+    /* Comment the pragma in the profiling file */
+    clang::SourceLocation pragma_start_src_loc = 
+        sm.translateLineCol(sm.getMainFileID(), pragma_start_line - 1, 1);
+    
+    rewrite_profiling_.InsertText(pragma_start_src_loc, "//", true, false);
+}
+
+std::string ProfilingRecursiveASTVisitor::ForConditionVarValue(const clang::Stmt *s) {
+
+  const clang::ForStmt *for_stmt = static_cast<const clang::ForStmt *>(s);
+  const clang::Expr *condition_expr = for_stmt->getCond();
+  const clang::BinaryOperator *binary_op = static_cast<const clang::BinaryOperator *>(condition_expr);
+  
+  std::string start_cond_var_value, end_cond_var_value;
+
+/*
+ *  Condition end value
+ */
+  const clang::Expr *right_expr = binary_op->getRHS();
+
+  if(strcmp(right_expr->getStmtClassName(), "IntegerLiteral") == 0) {
+    const clang::IntegerLiteral *int_literal = static_cast<const clang::IntegerLiteral *>(right_expr);
+    std::stringstream text_end_value;
+    text_end_value << int_literal->getValue().getZExtValue();
+    //return text.str();
+    end_cond_var_value = text_end_value.str();
+
+  } else if(strcmp(right_expr->getStmtClassName(), "ImplicitCastExpr") == 0) {
+  	const clang::DeclRefExpr *decl_ref_expr = 
+        static_cast<const clang::DeclRefExpr *>(*(right_expr->child_begin()));
+  	
+    const clang::NamedDecl *named_decl = decl_ref_expr->getFoundDecl();
+  	//return nD->getNameAsString(); 
+    end_cond_var_value = named_decl->getNameAsString();
+  }
+
+/*
+ * Condition start value
+ */
+
+/*
+ *  for (int i = ...)
+ */
+  if(strcmp(for_stmt->child_begin()->getStmtClassName(), "DeclStmt") == 0) {
+    const clang::DeclStmt *decl_stmt = static_cast<const clang::DeclStmt *>(*(for_stmt->child_begin()));
+    const clang::Decl *decl = decl_stmt->getSingleDecl();
+
+/*
+ *  for (... = 0)
+ */
+    if(strcmp(decl_stmt->child_begin()->getStmtClassName(), "IntegerLiteral") == 0) {      
+      const clang::IntegerLiteral *int_literal = 
+          static_cast<const clang::IntegerLiteral *>(*(decl_stmt->child_begin())); 
+      
+      std::stringstream text_star_value;
+      text_star_value << int_literal->getValue().getZExtValue();
+      start_cond_var_value = text_star_value.str();
+
+/*
+ *  for (... = a)
+ */
+    }else if (strcmp(decl_stmt->child_begin()->getStmtClassName(), "ImplicitCastExpr") == 0) {
+      const clang::DeclRefExpr *decl_ref_expr = 
+          static_cast<const clang::DeclRefExpr *>(*(decl_stmt->child_begin()->child_begin()));
+      
+      const clang::NamedDecl *named_decl = decl_ref_expr->getFoundDecl();
+      start_cond_var_value = named_decl->getNameAsString();
+    }
+  }
+/*
+ *  for ( i = ...)
+ */
+  else if(strcmp(for_stmt->child_begin()->getStmtClassName(), "BinaryOperator") == 0) {
+    const clang::BinaryOperator *binary_op = 
+        static_cast<const clang::BinaryOperator *>(*(for_stmt->child_begin())); 
+    const clang::DeclRefExpr *decl_ref_expr = 
+        static_cast<const clang::DeclRefExpr *>(*(binary_op->child_begin()));
+/*
+ *  for( ... = 0)
+ */
+    clang::ConstStmtIterator stmt_itr = binary_op->child_begin();
+    stmt_itr ++;
+    if(strcmp(stmt_itr->getStmtClassName(), "IntegerLiteral") == 0) {
+      const clang::IntegerLiteral *int_literal = static_cast<const clang::IntegerLiteral *>(*stmt_itr);
+      start_cond_var_value = int_literal->getValue().getZExtValue();      
+/*
+ *  for ( ... = a)
+ */
+    } else if (strcmp(stmt_itr->getStmtClassName(), "ImplicitCastExpr") == 0) {
+      const clang::DeclRefExpr *decl_ref_expr = 
+          static_cast<const clang::DeclRefExpr *>(*(stmt_itr->child_begin()));
+      const clang::NamedDecl *named_decl = decl_ref_expr->getFoundDecl();
+      start_cond_var_value = named_decl->getNameAsString();
+    }
+  }
+  end_cond_var_value.append(" - ");
+  end_cond_var_value.append(start_cond_var_value);
+  return end_cond_var_value;
+}
+
+unsigned ProfilingRecursiveASTVisitor::GetFunctionLineForPragma(clang::SourceLocation sl) {
+
+	unsigned pragma_line = utils::Line(sl, sm);
+
+  unsigned start_func_line, end_func_line;
+	std::vector<clang::FunctionDecl *>::iterator func_itr;
+
+	for(func_itr = function_list_.begin(); func_itr != function_list_.end(); ++ func_itr) {
+		start_func_line = utils::Line((*func_itr)->getSourceRange().getBegin(), sm);
+		end_func_line = utils::Line((*func_itr)->getSourceRange().getEnd(), sm);
+		if(pragma_line < end_func_line && pragma_line > start_func_line)
+			return start_func_line;
+	}
+
+	return 0;
+}
+
+
+void Program::ParseSourceCode(std::string fileName, std::vector<Root *> *root_vect) {
+
+  /* Convert <file>.c to <file_transformed>.c */
+  std::string out_name_pragma (fileName);
+  size_t ext = out_name_pragma.rfind(".");
+  if (ext == std::string::npos)
+    ext = out_name_pragma.length();
+  out_name_pragma.insert(ext, "_transformed");
+
+  llvm::errs() << "Output to: " << out_name_pragma << "\n";
+  std::string out_error_info;
+  llvm::raw_fd_ostream out_file_pragma(out_name_pragma.c_str(), out_error_info, 0);  
+
+  clang::Rewriter rewrite_pragma;
+  rewrite_pragma.setSourceMgr(ccompiler_.getSourceManager(), ccompiler_.getLangOpts());
+
+  TransformASTConsumer t_ast_consumer(rewrite_pragma, root_vect, ccompiler_.getSourceManager());
+  
+  /* Parse the AST */
+  clang::ParseAST(ccompiler_.getPreprocessor(), &t_ast_consumer, ccompiler_.getASTContext());
+  ccompiler_.getDiagnosticClient().EndSourceFile();
+
+  const clang::RewriteBuffer *rewrite_buff_pragma = 
+      rewrite_pragma.getRewriteBufferFor(ccompiler_.getSourceManager().getMainFileID());
+  out_file_pragma << std::string(rewrite_buff_pragma->begin(), rewrite_buff_pragma->end());
+  out_file_pragma.close();
+}
+
+bool TransformRecursiveASTVisitor::VisitDecl(clang::Decl *decl) {
+
+  clang::SourceLocation cxx_start_src_loc = decl->getLocStart();
+  if(sm.getFileID(cxx_start_src_loc) == sm.getMainFileID() 
+      && clang::isa<clang::CXXRecordDecl>(decl)
+      && include_inserted_ == false) {
+    include_inserted_ = true;
+    std::string text_include = "#include \"thread_pool/threads_pool.h\"\n";
+    rewrite_pragma_.InsertText(cxx_start_src_loc, text_include, true, false);
+  }
+
+  return true;
+}
+
+bool TransformRecursiveASTVisitor::VisitFunctionDecl(clang::FunctionDecl *f) {     
+  clang::SourceLocation f_start_src_loc = f->getLocStart();
+
+  if(sm.getFileID(f_start_src_loc) == sm.getMainFileID() && !clang::isa<clang::CXXMethodDecl>(f)) {
+    if(include_inserted_ == false) {
+      include_inserted_ = true;
+
+      std::string text_include = "#include \"thread_pool/threads_pool.h\"\n";
+
+      rewrite_pragma_.InsertText(f_start_src_loc, text_include, true, false);
+    }
+  }
+
+  return true;
+}
+
+bool TransformRecursiveASTVisitor::VisitStmt(clang::Stmt *s) {
+  
+  clang::SourceLocation s_start_stc_loc = s->getLocStart();
+  /* Visit only stmt in the source file (not in included file) and that are pragma stmt */
+  if(sm.getFileID(s_start_stc_loc) == sm.getMainFileID() 
+        && clang::isa<clang::OMPExecutableDirective>(s) 
+        && s != previous_stmt_) {
+    
+    previous_stmt_ = s;
+    clang::OMPExecutableDirective *omp_stmt = static_cast<clang::OMPExecutableDirective *>(s);
+    clang::Stmt *associated_stmt = omp_stmt->getAssociatedStmt();
+    if(associated_stmt) {
+      clang::Stmt *captured_stmt = static_cast<clang::CapturedStmt *>(associated_stmt)->getCapturedStmt();
+      if(strcmp(captured_stmt->getStmtClassName(), "OMPForDirective") != 0)
+        RewriteOMPPragma(associated_stmt, omp_stmt->getStmtClassName());
+
+    }else if(strcmp(omp_stmt->getStmtClassName(), "OMPBarrierDirective") == 0
+            || strcmp(omp_stmt->getStmtClassName(), "OMPTaskwaitDirective") == 0){
+      RewriteOMPBarrier(omp_stmt);
+    }
+  }
+  return true;
+}
+
+void TransformRecursiveASTVisitor::RewriteOMPBarrier(clang::OMPExecutableDirective *omp_stmt) {
+  unsigned stmt_start_line = utils::Line(omp_stmt->getLocStart(), sm);
+  
+  std::stringstream text_barrier;
+  text_barrier <<
+"{\n\
+  class Nested : public NestedBase {\n\
+  public: \n\
+    virtual std::shared_ptr<NestedBase> clone() const { return std::make_shared<Nested>(*this); } \n\
+    Nested(int pragma_id) : NestedBase(pragma_id) {}\n\
+    void callme(ForParameter for_param){}\n\
+  };\n\
+  ThreadPool::getInstance(\"" << utils::FileName(omp_stmt->getLocStart(), sm) 
+      << "\")->call(std::make_shared<Nested>(" << stmt_start_line << "));\n\
+}";
+
+  clang::SourceLocation pragma_start_src_loc = sm.translateLineCol(sm.getMainFileID(), stmt_start_line + 1, 1);
+  rewrite_pragma_.InsertText(pragma_start_src_loc, text_barrier.str(), true, false);
+
+  pragma_start_src_loc = sm.translateLineCol(sm.getMainFileID(), stmt_start_line, 1);
+  rewrite_pragma_.InsertText(pragma_start_src_loc, "//", true, false);
+}
+
+
+void TransformRecursiveASTVisitor::RewriteOMPPragma(clang::Stmt *associated_stmt, std::string pragma_name) {
+  
+  clang::Stmt *s = static_cast<clang::CapturedStmt *>(associated_stmt)->getCapturedStmt();
+
+  clang::SourceLocation stmt_start_src_loc = s->getLocStart();
+  unsigned pragma_start_line = utils::Line(stmt_start_src_loc, sm);
+
+  Node *n = GetNodeObjForPragma(s);
+  
+  std::stringstream text;
+  std::stringstream text_constructor_params;
+  std::stringstream text_class_var;
+  std::stringstream text_fx_var;
+  std::stringstream text_constructor_var;
+  std::stringstream text_constructor;
+
+/* Insert before pragma */
+  text <<
+"{\n\
+  class Nested : public NestedBase {\n\
+  public: \n\
+    virtual std::shared_ptr<NestedBase> clone() const { return std::make_shared<Nested>(*this); } \n\
+    Nested(int pragma_id";
+
+  text_constructor << " : NestedBase(pragma_id)";
+
+  clang::CapturedStmt *captured_stmt = static_cast<clang::CapturedStmt *>(associated_stmt);
+  /* Iterate over all the variable used inside a pragma but defined outside. These variable have to be passed to
+     the newly created function */ 
+  for(clang::CapturedStmt::capture_iterator capture_var_itr = captured_stmt->capture_begin(); 
+      capture_var_itr != captured_stmt->capture_end(); 
+      ++capture_var_itr){
+
+    clang::VarDecl *var_decl = capture_var_itr->getCapturedVar(); 
+    std::string var_type = var_decl->getType().getAsString();
+
+    if(capture_var_itr != captured_stmt->capture_begin()){
+      text_fx_var << ", ";
+      text_constructor_var << ", ";
+      text_constructor_params << ", ";
+    }else
+      text << ", ";
+    std::cout << var_type << " - ";
+    size_t pos_class = var_type.find("class");
+    if(pos_class != std::string::npos){
+      std::cout << "removing class - ";
+      var_type.erase(pos_class, pos_class + 5);
+    }
+    
+    size_t pos_uppersand = var_type.find("&");
+    if(pos_uppersand != std::string::npos)
+      var_type.erase(pos_uppersand - 1, var_type.size());
+
+    if(n->option_vect_->find("private") != n->option_vect_->end()) {
+      if(n->option_vect_->find("private")->second.find(var_decl->getNameAsString()) 
+            != n->option_vect_->find("private")->second.end() 
+            || var_type.find("*") != std::string::npos){
+
+        text_constructor_params << var_type << " " << var_decl->getNameAsString();
+        text_class_var << var_type << " " << var_decl->getNameAsString() << "_;\n";
+
+      }else{
+        text_constructor_params << var_type << " & " << var_decl->getNameAsString();
+        text_class_var << var_type << " & " << var_decl->getNameAsString() << "_;\n";
+      }
+    }else if(var_type.find("*") != std::string::npos) {
+      text_constructor_params << var_type << " " << var_decl->getNameAsString();
+      text_class_var << var_type << " " << var_decl->getNameAsString() << "_;\n";
+
+    }else {
+      text_constructor_params << var_type << " & " << var_decl->getNameAsString();
+      text_class_var << var_type << " & " << var_decl->getNameAsString() << "_;\n";
+    }
+    std::cout << var_type << std::endl;
+
+    text_constructor << ", " << var_decl->getNameAsString() << "_(" << var_decl->getNameAsString() << ") ";
+    text_fx_var << var_decl->getNameAsString() << "_";
+    text_constructor_var << var_decl->getNameAsString();
+  }
+
+  text << text_constructor_params.str() << ") " << text_constructor.str() 
+      << "{}\n" << text_class_var.str() << "\n";    
+  
+  unsigned stmt_start_line = utils::Line(s->getLocStart(), sm);
+  
+  if(text_constructor_params.str().compare("") == 0)
+      text << "void fx(ForParameter for_param)";
+    else
+      text << "void fx(ForParameter for_param, " << text_constructor_params.str() <<")";
+  
+  unsigned stmt_end_line = utils::Line(s->getLocEnd(), sm);
+  if(n->for_node_ != NULL) {
+    
+    std::string text_for;
+    text_for = RewriteOMPFor(n);
+
+    text << " {\n" << text_for;
+    clang::SourceLocation for_src_loc = sm.translateLineCol(sm.getMainFileID(), stmt_start_line + 1, 1);
+    rewrite_pragma_.InsertText(for_src_loc, text.str(), true, false);
+    rewrite_pragma_.InsertText(stmt_start_src_loc, "//", true, false);
+    
+    clang::SourceLocation for_end_src_loc = sm.translateLineCol(sm.getMainFileID(), stmt_end_line + 1, 1);
+    rewrite_pragma_.InsertText(for_end_src_loc, "launch_todo_job(); \n }\n", true, false);
+  }else {
+    rewrite_pragma_.InsertText(stmt_start_src_loc, text.str(), true, true);
+    //clang::SourceLocation stmt_end_src_loc = sm.translateLineCol(sm.getMainFileID(), stmt_end_line - 1, 1);
+    
+    rewrite_pragma_.InsertText(s->getLocEnd(), "launch_todo_job(); \n", true, false);
+  }
+
+  /* Comment the pragma */
+  clang::SourceLocation pragma_src_loc = sm.translateLineCol(sm.getMainFileID(), stmt_start_line - 1, 1);
+  rewrite_pragma_.InsertText(pragma_src_loc, "//", true, false);
+  
+/*
+ * ----- Insert after pragma ----
+ */
+   
+  std::stringstream text_after_pragma;
+  text_after_pragma <<"\
+void callme(ForParameter for_param) {\n";
+
+  if(text_fx_var.str().compare("") == 0)
+    text_after_pragma << "  fx(for_param);\n";
+  else
+    text_after_pragma << "  fx(for_param, " << text_fx_var.str() << ");\n";
+
+text_after_pragma << 
+"}\n\
+};\n\
+std::shared_ptr<NestedBase> nested_b = std::make_shared<Nested>(" << n->getStartLine();
+if(text_constructor_var.str().compare("") != 0)
+      text_after_pragma << ", ";    
+text_after_pragma << text_constructor_var.str() <<");\n";
+text_after_pragma << 
+"if(ThreadPool::getInstance(\"" << utils::FileName(s->getLocStart(), sm) << "\")->call(nested_b)) \n";
+    
+  std::cout << "classname " << pragma_name << std::endl;
+
+  if(pragma_name.compare("OMPParallelDirective") == 0 || pragma_name.compare("OMPForDirective") == 0) {
+
+text_after_pragma << "  nested_b->callme(ForParameter(0,1));\n";
+  }else {
+text_after_pragma << "  todo_job_.push(nested_b); \n";
+  }
+text_after_pragma << "}\n";
+
+/* If ForDirective no need to add the if, cause everything is solved inside */
+  stmt_end_line = utils::Line(s->getLocEnd(), sm);
+  clang::SourceLocation pragma_end_src_loc = sm.translateLineCol(sm.getMainFileID(), stmt_end_line + 1, 1);
+
+  rewrite_pragma_.InsertText(pragma_end_src_loc, text_after_pragma.str(), true, false);
+
+}
+
+Node *TransformRecursiveASTVisitor::GetNodeObjForPragma(clang::Stmt *s){
+
+  clang::SourceLocation stmt_start_src_loc = s->getLocStart();
+  unsigned stmt_start_line = utils::Line(stmt_start_src_loc, sm);
+
+  std::vector<Root *>::iterator root_itr;
+  for(root_itr = root_vect_->begin(); root_itr != root_vect_->end(); root_itr ++) {
+    if((*root_itr)->getFunctionLineStart() < utils::Line(stmt_start_src_loc, sm) 
+        && (*root_itr)->getFunctionLineEnd() > utils::Line(stmt_start_src_loc, sm))
+      
+      break;
+  }
+  
+  std::vector<Node *>::iterator node_itr;
+  Node * n;
+  for(node_itr = (*root_itr)->children_vect_->begin(); 
+      node_itr != (*root_itr)->children_vect_->end(); 
+      node_itr ++) {
+    
+    n = RecursiveGetNodeObjforPragma(*node_itr, stmt_start_line);
+    if(n != NULL)
+      return n;
+  }
+  return NULL;
+}
+
+Node *TransformRecursiveASTVisitor::RecursiveGetNodeObjforPragma(Node *n, unsigned stmt_start_line) {
+  Node *nn;
+  if(n->getStartLine() == stmt_start_line){
+        return n;
+  }else if(n->children_vect_ != NULL) {
+    for(std::vector<Node *>::iterator node_itr = n->children_vect_->begin(); 
+        node_itr != n->children_vect_->end(); ++ node_itr) {
+      
+      nn = RecursiveGetNodeObjforPragma(*node_itr, stmt_start_line);
+      if(nn != NULL)
+        return nn;
+    }
+  }
+  return NULL;
+}
+
+
+std::string TransformRecursiveASTVisitor::RewriteOMPFor(Node *n) {
+
+  std::stringstream text_for;
+
+  ForNode *for_node = n->for_node_;
+
+  /* for( int i = a + for_param->thread_id_ *(b - a)/ num_threads_; .... */
+  text_for << "for(" << for_node->loop_var_type_ << " " << for_node->loop_var_ << " = ";
+  if(for_node->loop_var_init_val_set_)
+    text_for << for_node->loop_var_init_val_;
+  else
+    text_for << for_node->loop_var_init_var_;
+
+  text_for << " + for_param.thread_id_*(";
+  if(for_node->condition_val_set_)
+    text_for << for_node->condition_val_ << " - ";
+  else
+    text_for << for_node->condition_var_ << " - ";
+
+  if(for_node->loop_var_init_val_set_)
+    text_for << for_node->loop_var_init_val_;
+  else
+    text_for << for_node->loop_var_init_var_;
+
+  text_for << ")/for_param.num_threads_; "; 
+
+
+  /* ....; i < a + (for_param->thread_id_ + 1)*(b - a)/ num_threads_; ... */
+  text_for << for_node->loop_var_ << " " << for_node->condition_op_ << " ";
+
+  if(for_node->loop_var_init_val_set_)
+    text_for << for_node->loop_var_init_val_;
+  else
+    text_for << for_node->loop_var_init_var_;
+
+  text_for << " + (for_param.thread_id_ + 1)*(";
+  if(for_node->condition_val_set_)
+    text_for << for_node->condition_val_ << " - ";
+  else
+    text_for << for_node->condition_var_ << " - ";
+
+  if(for_node->loop_var_init_val_set_)
+    text_for << for_node->loop_var_init_val_;
+  else
+    text_for << for_node->loop_var_init_var_;
+
+  text_for << ")/for_param.num_threads_; "; 
+  
+
+  /* ...; i ++) */
+  text_for << for_node->loop_var_ << " " << for_node->increment_op_ << " ";
+  if(for_node->increment_val_set_)
+    text_for << for_node->increment_val_;
+  else
+    text_for << for_node->increment_var_; 
+
+  /* Guarantee that a "{" is inserted at the end of the for declaration line if necessary */ 
+  clang::SourceLocation for_src_loc = for_node->for_stmt_->getLocStart();
+  std::string for_string = sm.getCharacterData(for_src_loc);
+  size_t ext = for_string.find_first_of("\n");
+  for_string = for_string.substr(0, ext);
+
+  ext = for_string.rfind("{");
+  if (ext == std::string::npos)
+    text_for << ")\n";
+  else
+    text_for << ") { \n";
+
+  return text_for.str();
+
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=pragma\_handler/Node.cpp]
+#include "pragma_handler/Node.h"
+
+Node::Node(clang::OMPExecutableDirective *pragma_stmt, clang::FunctionDecl *funct_decl, clang::SourceManager& sm){
+  
+  option_vect_ = new std::map<std::string, VarList_>();
+  pragma_stmt_ = pragma_stmt;
+
+  if(pragma_stmt->getAssociatedStmt()) {
+    if(strcmp(pragma_stmt->getStmtClassName(), "OMPParallelDirective") == 0 && utils::Line(pragma_stmt->getAssociatedStmt()->getLocStart(), sm) == utils::Line(pragma_stmt->getAssociatedStmt()->getLocEnd(), sm)){
+      setPragmaClauses(sm);
+      pragma_stmt_ = static_cast<clang::OMPExecutableDirective *>(static_cast<clang::CapturedStmt *>(pragma_stmt->getAssociatedStmt())->getCapturedStmt());
+    }
+  }
+  setSourceLocation(sm);
+	setParentFunction(funct_decl, sm);	
+	setPragmaClauses(sm);
+
+	children_vect_ = new std::vector<Node *>();
+
+	if(strcmp(pragma_stmt_->getStmtClassName(), "OMPForDirective") == 0) {
+    clang::ForStmt *for_stmt = static_cast<clang::ForStmt *>(static_cast<clang::CapturedStmt *>(pragma_stmt_->getAssociatedStmt())->getCapturedStmt());
+    for_node_ = new ForNode(for_stmt);
+  } else
+		for_node_ = NULL;
+}
+
+void Node::setSourceLocation(const clang::SourceManager& sm) {
+  
+  clang::Stmt *s = pragma_stmt_;
+  if(pragma_stmt_->getAssociatedStmt())
+    s = static_cast<clang::CapturedStmt *>(pragma_stmt_->getAssociatedStmt())->getCapturedStmt();
+
+  file_name_ = utils::FileName(pragma_stmt_->getLocStart(), sm);
+  if(s != NULL) {
+    start_line_ = utils::Line(s->getLocStart(), sm);
+    start_column_ = utils::Column(s->getLocStart(), sm);
+
+    end_line_ = utils::Line(s->getLocEnd(), sm);
+    end_column_ = utils::Column(s->getLocEnd(), sm);
+
+  } else {
+    start_line_ = utils::Line(pragma_stmt_->getLocStart(), sm);
+    start_column_ = utils::Column(pragma_stmt_->getLocStart(), sm);
+
+    end_line_ = utils::Line(pragma_stmt_->getLocEnd(), sm);
+    end_column_ = utils::Column(pragma_stmt_->getLocEnd(), sm);
+  }
+  return;
+}
+
+void Node::setParentFunction(clang::FunctionDecl *funct_decl, const clang::SourceManager& sm) {
+  
+  parent_funct_info_.function_decl_ = funct_decl;
+  parent_funct_info_.function_start_line_ =  utils::Line(funct_decl->getLocStart(), sm);
+  parent_funct_info_.function_end_line_ = utils::Line(funct_decl->getLocEnd(), sm);
+  
+  /* Name of the function containing the pragma */
+  parent_funct_info_.function_name_ = funct_decl->getNameInfo().getAsString();
+
+  /* Return type of the function containing the pragma */
+  parent_funct_info_.function_return_type_ = funct_decl->getResultType().getAsString();
+
+  /* Parameters of the function containing the pragma */
+  parent_funct_info_.num_params_ = funct_decl->getNumParams();
+  parent_funct_info_.function_parameters_ = new std::string*[parent_funct_info_.num_params_];
+  
+  for(int i = 0; i < parent_funct_info_.num_params_; i ++) {
+    parent_funct_info_.function_parameters_[i] = new std::string[2];
+    
+    const clang::ValueDecl *value_decl = static_cast<const clang::ValueDecl *>(funct_decl->getParamDecl(i));
+    parent_funct_info_.function_parameters_[i][0] = value_decl->getType().getAsString();
+
+    const clang::NamedDecl *named_decl = static_cast<const clang::NamedDecl *>(funct_decl->getParamDecl(i));            
+    parent_funct_info_.function_parameters_[i][1] = named_decl->getNameAsString();
+  }
+
+  /* If the parent function is declared in a class return the name of the class */
+/*  if (clang::CXXMethodDecl *cxxMethodD = dynamic_cast<clang::CXXMethodDecl *>(funct_decl)){
+      const clang::NamedDecl *nD = static_cast<const clang::NamedDecl *>(cxxMethodD->getParent());            
+      parent_funct_info_.parentFunctionClassName = nD->getQualifiedNameAsString();
+  }
+*/
+    parent_funct_info_.function_class_name_ = "";
+}
+
+void Node::setPragmaClauses(clang::SourceManager& sm) {
+  
+  pragma_type_ = pragma_stmt_->getStmtClassName();
+/*
+ * ---- Exctract pragma options ----
+ */
+  clang::OMPClause *omp_clause = NULL;
+  const char * clause_name;
+  unsigned num_clauses = pragma_stmt_->getNumClauses();
+  
+  for(unsigned i = 0; i < num_clauses; i ++) {
+    omp_clause = pragma_stmt_->getClause(i);
+    clause_name = getOpenMPClauseName(omp_clause->getClauseKind());
+    VarList_ *var_list = new VarList_;
+
+    if(strcmp(clause_name, "shared") == 0 || strcmp(clause_name, "private") == 0 || strcmp(clause_name, "firstprivate") == 0) {
+      
+      for(clang::StmtRange stmt_range = omp_clause->children(); stmt_range; ++ stmt_range) {
+        const clang::DeclRefExpr *decl_ref_expr = static_cast<const clang::DeclRefExpr *>(*stmt_range);
+        if(decl_ref_expr) {
+          const clang::NamedDecl *named_decl = decl_ref_expr->getFoundDecl();
+          const clang::ValueDecl *value_decl = decl_ref_expr->getDecl();
+          var_list->insert(std::pair<std::string, std::string>(named_decl->getNameAsString(), value_decl->getType().getAsString()));
+        }
+      }
+    }else if(strcmp(clause_name, "period") == 0) {
+
+      clang::OMPPeriodClause *omp_peroid_clause = static_cast<clang::OMPPeriodClause *>(omp_clause);
+      const clang::IntegerLiteral *int_literal = static_cast<const clang::IntegerLiteral *>(omp_peroid_clause->getPeriodValue());
+      char period_val[100];
+      sprintf(period_val, "%lu", int_literal->getValue().getZExtValue());
+      var_list->insert(std::pair<std::string, std::string>(period_val, ""));
+    }else {
+      var_list->insert(std::pair<std::string, std::string>("", ""));
+    }
+
+    option_vect_->insert(std::pair<std::string, VarList_>(clause_name, *var_list));
+  }
+}
+
+void Node::CreateXMLPragmaNode(tinyxml2::XMLDocument *xml_doc, tinyxml2::XMLElement *pragmas_element) {
+  
+  tinyxml2::XMLElement *pragma_element = xml_doc->NewElement("Pragma");
+  pragmas_element->InsertEndChild(pragma_element);
+
+  tinyxml2::XMLElement *name_element = xml_doc->NewElement("Name");
+  pragma_element->InsertEndChild(name_element);
+  
+  tinyxml2::XMLText* name_text = xml_doc->NewText(pragma_type_.c_str());
+  name_element->InsertEndChild(name_text);
+
+  tinyxml2::XMLElement *position_element = xml_doc->NewElement("Position");
+  
+  if(option_vect_->size() != 0) {
+    tinyxml2::XMLElement *options_element = xml_doc->NewElement("Options");
+    pragma_element->InsertEndChild(options_element);
+
+    CreateXMLPragmaOptions(xml_doc, options_element);
+
+    pragma_element->InsertAfterChild(options_element, position_element);
+  } else {
+
+/*
+ * ---- Position ----
+ */  
+    pragma_element->InsertEndChild(position_element);
+  }
+
+  tinyxml2::XMLElement *start_line_element = xml_doc->NewElement("StartLine");
+  position_element->InsertEndChild(start_line_element);
+  char start_line[100];
+  sprintf(start_line, "%d", start_line_);
+  tinyxml2::XMLText* start_line_text = xml_doc->NewText(start_line);
+  start_line_element->InsertEndChild(start_line_text);
+
+  tinyxml2::XMLElement *end_line_element = xml_doc->NewElement("EndLine");
+  position_element->InsertEndChild(end_line_element);
+  char end_line[100];
+  sprintf(end_line, "%d", end_line_);
+  tinyxml2::XMLText* end_line_text = xml_doc->NewText(end_line);
+  end_line_element->InsertEndChild(end_line_text);
+
+/*
+ * ----- If present insert info of the For stmt ---- 
+ */
+  if(for_node_) {
+    tinyxml2::XMLElement *for_element = xml_doc->NewElement("For");
+    pragma_element->InsertEndChild(for_element);
+    for_node_->CreateXMLPragmaFor(xml_doc, for_element);
+  }
+
+  if(children_vect_->size() != 0) {
+    tinyxml2::XMLElement *nesting_element = xml_doc->NewElement("Children");
+    pragma_element->InsertEndChild(nesting_element);
+    tinyxml2::XMLElement *new_pragmas_element = xml_doc->NewElement("Pragmas");
+    nesting_element->InsertEndChild(new_pragmas_element);
+    for(std::vector<Node *>::iterator node_itr = children_vect_->begin(); node_itr != children_vect_->end(); ++node_itr) {
+      (*node_itr)->CreateXMLPragmaNode(xml_doc, new_pragmas_element);
+    }
+  }
+}
+
+void Node::CreateXMLPragmaOptions(tinyxml2::XMLDocument *xml_doc, tinyxml2::XMLElement *options_element) {
+  if(option_vect_->size() != 0) {
+    
+    for(std::map<std::string, VarList_>::iterator options_itr = option_vect_->begin(); options_itr != option_vect_->end(); ++ options_itr) {
+
+      tinyxml2::XMLElement *option_element = xml_doc->NewElement("Option");
+      options_element->InsertEndChild(option_element);
+
+      tinyxml2::XMLElement *option_name_element = xml_doc->NewElement("Name");
+      option_element->InsertEndChild(option_name_element);
+      tinyxml2::XMLText* name_opt_text = xml_doc->NewText((*options_itr).first.c_str());
+      option_name_element->InsertEndChild(name_opt_text);
+
+      if((*options_itr).second.size() != 0) {
+        for(std::map<std::string, std::string>::iterator var_itr = (*options_itr).second.begin(); var_itr != (*options_itr).second.end(); ++ var_itr) {
+          tinyxml2::XMLElement *parameter_element = xml_doc->NewElement("Parameter");
+          option_element->InsertEndChild(parameter_element);
+
+          if(strcmp((*var_itr).first.c_str(), "") != 0) {
+            tinyxml2::XMLElement *type_element = xml_doc->NewElement("Type");
+            tinyxml2::XMLText* type_text = xml_doc->NewText((*var_itr).second.c_str());
+            type_element->InsertEndChild(type_text);
+            parameter_element->InsertEndChild(type_element);
+          }
+          tinyxml2::XMLElement *name_element = xml_doc->NewElement("Var");
+          tinyxml2::XMLText* name_text = xml_doc->NewText((*var_itr).first.c_str());
+          name_element->InsertEndChild(name_text);
+          parameter_element->InsertEndChild(name_element);
+
+        }
+      }
+    }
+  }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=pragma\_handler/ForNode.cpp]
+#include "pragma_handler/ForNode.h"
+
+
+ForNode::ForNode(clang::ForStmt *for_stmt) {
+  loop_var_type_ = "";
+  loop_var_init_val_set_ = false;
+
+  loop_var_init_var_ = "";
+
+  condition_val_set_ = false;
+  condition_var_ = "";
+
+  increment_val_set_ = false;
+  increment_var_ = "";
+
+  for_stmt_ = for_stmt;
+  ExtractForParameters(for_stmt);
+}
+
+void ForNode::ExtractForParameters(clang::ForStmt *for_stmt) {
+  
+  ExtractForInitialization(for_stmt);
+  ExtractForCondition(for_stmt);
+  ExtractForIncrement(for_stmt);
+
+}
+
+void ForNode::ExtractForInitialization(clang::ForStmt *for_stmt) {
+/*
+* Initialization of the loop variable
+*/
+
+  /* for(int i = ....) */
+  if(strcmp(for_stmt->child_begin()->getStmtClassName(), "DeclStmt") == 0) {
+    const clang::DeclStmt *decl_stmt = static_cast<const clang::DeclStmt *>(*(for_stmt->child_begin()));
+    const clang::Decl *decl = decl_stmt->getSingleDecl();
+    
+    /* Return the name of the variable */
+    const clang::NamedDecl *named_decl = static_cast<const clang::NamedDecl *>(decl);            
+    loop_var_ = named_decl->getNameAsString();
+    
+    /* Return the type of the variable */  
+    const clang::ValueDecl *vale_decl = static_cast<const clang::ValueDecl *>(named_decl);
+    loop_var_type_ = vale_decl->getType().getAsString();
+
+    /* for (... = 0) */
+    if(strcmp(decl_stmt->child_begin()->getStmtClassName(), "IntegerLiteral") == 0) {      
+      const clang::IntegerLiteral *int_literal = static_cast<const clang::IntegerLiteral *>(*(decl_stmt->child_begin())); 
+      loop_var_init_val_ = int_literal->getValue().getZExtValue();
+      loop_var_init_val_set_ = true;
+    
+    /* for (... = a) */
+    }else if (strcmp(decl_stmt->child_begin()->getStmtClassName(), "ImplicitCastExpr") == 0) {
+      const clang::DeclRefExpr *decl_ref_expr = static_cast<const clang::DeclRefExpr *>(*(decl_stmt->child_begin()->child_begin()));
+      const clang::NamedDecl *named_decl = decl_ref_expr->getFoundDecl();
+      loop_var_init_var_ = named_decl->getNameAsString();
+    }
+
+  /* for ( i = ...) */
+  }else if(strcmp(for_stmt->child_begin()->getStmtClassName(), "BinaryOperator") == 0) {
+    const clang::BinaryOperator *binary_op = static_cast<const clang::BinaryOperator *>(*(for_stmt->child_begin())); 
+    const clang::DeclRefExpr *decl_ref_expr = static_cast<const clang::DeclRefExpr *>(*(binary_op->child_begin()));
+    
+    //Return the name of the variable
+    const clang::NamedDecl *named_decl = decl_ref_expr->getFoundDecl();
+    loop_var_ = named_decl->getNameAsString();
+    
+    /* for( ... = 0) */
+    clang::ConstStmtIterator stmt_itr = binary_op->child_begin();
+    stmt_itr ++;
+    if(strcmp(stmt_itr->getStmtClassName(), "IntegerLiteral") == 0) {
+      const clang::IntegerLiteral *int_literal = static_cast<const clang::IntegerLiteral *>(*stmt_itr);
+      loop_var_init_val_ = int_literal->getValue().getZExtValue();      
+      loop_var_init_val_set_ = true;      
+
+    /* for ( ... = a) */
+    } else if (strcmp(stmt_itr->getStmtClassName(), "ImplicitCastExpr") == 0) {
+      const clang::DeclRefExpr *decl_ref_expr = static_cast<const clang::DeclRefExpr *>(*(stmt_itr->child_begin()));
+      const clang::NamedDecl *named_decl = decl_ref_expr->getFoundDecl();
+      loop_var_init_var_ = named_decl->getNameAsString();
+    }
+  }
+}
+
+void ForNode::ExtractForCondition(clang::ForStmt *for_stmt) {
+
+  const clang::Expr *condition_expr = for_stmt->getCond();
+  const clang::BinaryOperator *binary_op = static_cast<const clang::BinaryOperator *>(condition_expr);
+  
+  /* Conditional funcion */
+  condition_op_ = binary_op->getOpcodeStr();
+
+  /* Conditional value */
+  const clang::Expr *right_expr = binary_op->getRHS();
+
+  if(strcmp(right_expr->getStmtClassName(), "IntegerLiteral") == 0) {
+    const clang::IntegerLiteral *int_literal = static_cast<const clang::IntegerLiteral *>(right_expr);
+    condition_val_ = int_literal->getValue().getZExtValue();
+    condition_val_set_ = true;
+
+  }else if(strcmp(right_expr->getStmtClassName(), "ImplicitCastExpr") == 0) {
+    const clang::DeclRefExpr *decl_ref_expr = static_cast<const clang::DeclRefExpr *>(*(right_expr->child_begin()));
+    const clang::NamedDecl *named_decl = decl_ref_expr->getFoundDecl();
+
+/*
+ * ---- PROBLEM: If the variable is not defined inside the block (which block?)
+ * ----          the NameDecl * is != NULL, but when you try to exctract the name -> segmentation fault!!
+ */
+    condition_var_ = named_decl->getNameAsString();
+  
+  }
+}
+
+void ForNode::ExtractForIncrement(clang::ForStmt *for_stmt) {
+  
+  const clang::Expr *increment_expr = for_stmt->getInc();
+
+  if(strcmp(increment_expr->getStmtClassName(), "UnaryOperator") == 0) {
+    const clang::UnaryOperator *unary_op =  static_cast<const clang::UnaryOperator *>(increment_expr);
+    increment_op_ = unary_op->getOpcodeStr(unary_op->getOpcode());
+
+  }else if(strcmp(increment_expr->getStmtClassName(), "CompoundAssignOperator") == 0) {
+    const clang::CompoundAssignOperator *compound_op = static_cast<const clang::CompoundAssignOperator *>(increment_expr);
+    increment_op_ = compound_op->getOpcodeStr();
+    const clang::Expr *right_expr = compound_op->getRHS();
+
+    if(strcmp(right_expr->getStmtClassName(), "IntegerLiteral") == 0) {
+      const clang::IntegerLiteral *int_literal = static_cast<const clang::IntegerLiteral *>(right_expr);
+      increment_val_ = int_literal->getValue().getZExtValue();
+      increment_val_set_ = true;
+
+    }else if(strcmp(right_expr->getStmtClassName(), "ImplicitCastExpr") == 0) {
+      const clang::DeclRefExpr *decl_ref_expr = static_cast<const clang::DeclRefExpr *>(*(right_expr->child_begin()));
+      const clang::NamedDecl *named_decl = decl_ref_expr->getFoundDecl();
+      increment_var_ = named_decl->getNameAsString();  
+    }
+  }
+
+}
+
+void ForNode::CreateXMLPragmaFor(tinyxml2::XMLDocument *xml_doc, tinyxml2::XMLElement *for_element) {
+
+/*
+ * ----- DECLARATION -----
+ */ 
+  tinyxml2::XMLElement *declaration_element = xml_doc->NewElement("Declaration");
+  for_element->InsertEndChild(declaration_element);
+
+  tinyxml2::XMLElement *type_element = xml_doc->NewElement("Type");
+  declaration_element->InsertEndChild(type_element);
+  tinyxml2::XMLText* type_text = xml_doc->NewText(loop_var_type_.c_str());
+  type_element->InsertEndChild(type_text);
+
+  tinyxml2::XMLElement *loop_var_element = xml_doc->NewElement("LoopVariable");
+  declaration_element->InsertEndChild(loop_var_element);
+  tinyxml2::XMLText* loop_var_text = xml_doc->NewText(loop_var_.c_str());
+  loop_var_element->InsertEndChild(loop_var_text);
+
+  if(loop_var_init_val_set_ == true) {
+    tinyxml2::XMLElement *init_val_element = xml_doc->NewElement("InitValue");
+    declaration_element->InsertEndChild(init_val_element);
+    char loop_var_init_val[100];
+    sprintf(loop_var_init_val, "%d", loop_var_init_val_);
+    tinyxml2::XMLText* init_val_text = xml_doc->NewText(loop_var_init_val);
+    init_val_element->InsertEndChild(init_val_text);
+  }else {
+    tinyxml2::XMLElement *init_var_element = xml_doc->NewElement("InitVariable");
+    declaration_element->InsertEndChild(init_var_element);
+    tinyxml2::XMLText* init_var_text = xml_doc->NewText(loop_var_init_var_.c_str());
+    init_var_element->InsertEndChild(init_var_text);
+  }
+
+/*
+ * ---- CONDITION -----
+ */ 
+  tinyxml2::XMLElement *condition_element = xml_doc->NewElement("Condition");
+  for_element->InsertAfterChild(declaration_element, condition_element); 
+  
+  tinyxml2::XMLElement *condition_op_element = xml_doc->NewElement("Op");
+  condition_element->InsertEndChild(condition_op_element);
+  tinyxml2::XMLText* condition_op_text = xml_doc->NewText(condition_op_.c_str());
+  condition_op_element->InsertEndChild(condition_op_text);
+
+  if(condition_val_set_ == true) {
+    tinyxml2::XMLElement *condition_val_element = xml_doc->NewElement("ConditionValue");
+    condition_element->InsertEndChild(condition_val_element);
+    char condition_val[100];
+    sprintf(condition_val, "%d", condition_val_);
+    tinyxml2::XMLText* condition_val_text = xml_doc->NewText(condition_val);
+    condition_val_element->InsertEndChild(condition_val_text);
+  
+  }else {
+    tinyxml2::XMLElement *condition_var_element = xml_doc->NewElement("ConditionVariable");
+    condition_element->InsertEndChild(condition_var_element);
+    tinyxml2::XMLText* condition_var_text = xml_doc->NewText(condition_var_.c_str());
+    condition_var_element->InsertEndChild(condition_var_text);
+  }
+
+/*
+ * ---- INCREMENT ----
+ */
+  tinyxml2::XMLElement *increment_element = xml_doc->NewElement("Increment");
+  for_element->InsertAfterChild(condition_element, increment_element); 
+
+  tinyxml2::XMLElement *increment_op_element = xml_doc->NewElement("Op");
+  increment_element->InsertEndChild(increment_op_element);
+  tinyxml2::XMLText* increment_op_text = xml_doc->NewText(increment_op_.c_str());
+  increment_op_element->InsertEndChild(increment_op_text);
+
+  if(increment_val_set_ == true) {
+    tinyxml2::XMLElement *increment_val_element = xml_doc->NewElement("IncrementValue");
+    increment_element->InsertEndChild(increment_val_element);
+    char increment_val[100];
+    sprintf(increment_val, "%d", increment_val_);
+    tinyxml2::XMLText* increment_val_text = xml_doc->NewText(increment_val);
+    increment_val_element->InsertEndChild(increment_val_text);
+
+  }else if(increment_var_.compare("") != 0) {
+    tinyxml2::XMLElement *increment_var_element = xml_doc->NewElement("IncrementVariable");
+    increment_element->InsertEndChild(increment_var_element);
+    tinyxml2::XMLText* increment_var_text = xml_doc->NewText(increment_var_.c_str());
+    increment_var_element->InsertEndChild(increment_var_text);
+  }
+
+
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=pragma\_handler/Root.cpp]
+#include "pragma_handler/Root.h"
+
+Root::Root(Node *n, FunctionInfo funct_info) {
+
+	children_vect_ = new std::vector<Node *>();
+	children_vect_->push_back(n);
+
+	last_node_ = n;
+  function_info_ = funct_info;
+}
+
+void Root::CreateXMLFunction(tinyxml2::XMLDocument *xml_doc) {
+
+  tinyxml2::XMLElement *function_element = xml_doc->NewElement("Function");
+  xml_doc->LastChild()->InsertEndChild(function_element);
+
+  tinyxml2::XMLElement *name_element = xml_doc->NewElement("Name");
+  function_element->InsertEndChild(name_element); 
+  tinyxml2::XMLText* name_text = xml_doc->NewText(function_info_.function_name_.c_str());
+  name_element->InsertEndChild(name_text);
+
+  if(function_info_.function_class_name_.compare("") != 0){
+    tinyxml2::XMLElement *class_name_element = xml_doc->NewElement("ClassName");
+    function_element->InsertEndChild(class_name_element); 
+    tinyxml2::XMLText* class_name_text = xml_doc->NewText(function_info_.function_class_name_.c_str());
+    class_name_element->InsertEndChild(class_name_text);
+  }
+    
+  tinyxml2::XMLElement *return_type_element = xml_doc->NewElement("ReturnType");
+  function_element->InsertEndChild(return_type_element);
+  tinyxml2::XMLText* return_type_text = xml_doc->NewText(function_info_.function_return_type_.c_str());
+  return_type_element->InsertEndChild(return_type_text);
+
+  if(function_info_.num_params_ > 0) {
+    tinyxml2::XMLElement *parameters_element = xml_doc->NewElement("Parameters");
+    function_element->InsertEndChild(parameters_element);
+
+    for(int i = 0; i < function_info_.num_params_; i ++) {
+      tinyxml2::XMLElement *parameter_element = xml_doc->NewElement("Parameter");
+      parameters_element->InsertEndChild(parameter_element);
+
+      tinyxml2::XMLElement *type_element = xml_doc->NewElement("Type");
+      parameter_element->InsertEndChild(type_element);
+      tinyxml2::XMLText* param_type_text = xml_doc->NewText(function_info_.function_parameters_[i][0].c_str());
+      type_element->InsertEndChild(param_type_text);
+
+      tinyxml2::XMLElement *param_name_element = xml_doc->NewElement("Name");
+      parameter_element->InsertEndChild(param_name_element);
+      tinyxml2::XMLText* param_name_text = xml_doc->NewText(function_info_.function_parameters_[i][1].c_str());
+      param_name_element->InsertEndChild(param_name_text);
+
+    }
+  }
+
+  tinyxml2::XMLElement *line_element = xml_doc->NewElement("Line");
+  function_element->InsertEndChild(line_element); 
+  char line[100];
+  sprintf(line, "%d", function_info_.function_start_line_);
+  tinyxml2::XMLText* line_text = xml_doc->NewText(line);
+  line_element->InsertEndChild(line_text);
+
+
+  tinyxml2::XMLElement *pragmas_element = xml_doc->NewElement("Pragmas");
+  function_element->InsertEndChild(pragmas_element);
+
+  for(std::vector<Node *>::iterator node_itr = children_vect_->begin(); node_itr != children_vect_->end(); ++ node_itr) {
+    (*node_itr)->CreateXMLPragmaNode(xml_doc, pragmas_element);
+  }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=pragma\_handler/create\_tree.cpp]
+#include "pragma_handler/create_tree.h"
+
+std::vector<Root *> *CreateTree(std::vector<clang::OMPExecutableDirective *> *pragma_list,
+								std::vector<clang::FunctionDecl *> *function_list, clang::SourceManager &sm) {
+
+	clang::FunctionDecl *function_decl = NULL;
+  clang::FunctionDecl *function_decl_tmp = NULL;
+	std::vector<Root *> *root_vect = new std::vector<Root *>();
+
+  std::vector<clang::OMPExecutableDirective *>::iterator omp_itr;
+
+	for(omp_itr = pragma_list->begin(); omp_itr != pragma_list->end(); ++ omp_itr) {    
+
+    function_decl_tmp = GetFunctionForPragma(*omp_itr, function_list, sm);
+    Node * n = new Node(*omp_itr, function_decl_tmp, sm);
+
+    /* In case of parallel for skip one stmt. 
+       Parallel for is represented with two OMPExecutableDirective,
+       (OMPParallel + OMPFor) so we have to skip one stmt */
+    if((*omp_itr)->getAssociatedStmt()) {
+      if(strcmp((*omp_itr)->getStmtClassName(), "OMPParallelDirective") == 0 
+          && utils::Line((*omp_itr)->getAssociatedStmt()->getLocStart(), sm) 
+             == utils::Line((*omp_itr)->getAssociatedStmt()->getLocEnd(), sm)) {
+        n->pragma_type_ = "OMPParallelForDirective";
+        omp_itr++;
+      }
+    }
+
+    if(function_decl_tmp != function_decl) {
+      function_decl = function_decl_tmp;
+      Root *root = new Root(n, n->getParentFunctionInfo());
+      n->setParentNode(NULL);
+      root->setLastNode(n);
+      root_vect->push_back(root);
+
+    }else {
+      BuildTree(root_vect->back(), n);
+      root_vect->back()->setLastNode(n);
+    }
+  }
+  return root_vect;
+}
+
+
+clang::FunctionDecl *GetFunctionForPragma(clang::OMPExecutableDirective *pragma_stmt, 
+										  std::vector<clang::FunctionDecl *> *function_list, 
+										  clang::SourceManager &sm) {
+
+  unsigned funct_start_line, funct_end_line;
+	unsigned pragma_start_line = utils::Line(pragma_stmt->getLocStart(), sm);
+	std::vector<clang::FunctionDecl *>::iterator funct_itr;
+
+	for(funct_itr = function_list->begin(); funct_itr != function_list->end(); ++ funct_itr) {
+		funct_start_line = utils::Line((*funct_itr)->getSourceRange().getBegin(), sm);
+		funct_end_line = utils::Line((*funct_itr)->getSourceRange().getEnd(), sm);
+		if(pragma_start_line < funct_end_line && pragma_start_line > funct_start_line)
+			return (*funct_itr);
+	}
+	return NULL;
+}
+
+
+/*
+ * ---- Attach the node to the correct parent (if the node is node annidated attach it to root) ----
+ * THEOREM: A node can be annidated only in its previous node or in the father of the previous node or in the father 
+ *          of the father ..... of the previous node. (This is due to the fact that the list of pragmas is ordered based
+            on starting line of the associated stmt).
+ */ 
+void BuildTree(Root *root, Node *n) {
+
+  Node *last_node = root->getLastNode();
+  bool annidation;
+
+  while(last_node != NULL) {
+    annidation = CheckAnnidation(last_node, n);
+
+    if(annidation == true) {
+      last_node->AddChildNode(n);
+      n->setParentNode(last_node);
+      return;
+
+    }else 
+      last_node = last_node->getParentNode();
+  }
+
+  root->AddChildNode(n);
+  n->setParentNode(NULL);
+}
+
+/*
+ * ---- Check if n is annidated inside parent: to be annidated it is enough that n->endLine < parent->endLine 
+ * (for sure n->startLine < parent->startLine because pragmas are ordered based on their starting line)
+ */ 
+bool CheckAnnidation(Node *parent, Node *n) {
+
+  if(n->getEndLine() < parent->getEndLine())  
+    return true;
+  else
+    return false;
+  
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=utilis/source\_locations.cpp]
+#include "utils/source_locations.h"
+
+using namespace std;
+using namespace clang;
+
+namespace utils {
+
+string FileName(SourceLocation const& l, SourceManager const& sm) {
+	PresumedLoc pl = sm.getPresumedLoc(l);
+	return string(pl.getFilename());
+}
+
+string FileId(SourceLocation const& l, SourceManager const& sm) {
+	string fn = FileName(l, sm);
+	for(size_t i=0; i<fn.length(); ++i)
+		switch(fn[i]) {
+			case '/':
+			case '\\':
+			case '>':
+			case '.':
+				fn[i] = '_';
+		}
+	return fn;
+}
+
+unsigned Line(SourceLocation const& l, SourceManager const& sm) {
+	PresumedLoc pl = sm.getPresumedLoc(l);
+	return pl.getLine();
+}
+
+std::pair<unsigned, unsigned> Line(clang::SourceRange const& r, SourceManager const& sm) {
+	return std::make_pair(Line(r.getBegin(), sm), Line(r.getEnd(), sm));
+}
+
+unsigned Column(SourceLocation const& l, SourceManager const& sm) {
+	PresumedLoc pl = sm.getPresumedLoc(l);
+	return pl.getColumn();
+}
+
+std::pair<unsigned, unsigned> Column(clang::SourceRange const& r, SourceManager const& sm) {
+	return std::make_pair(Column(r.getBegin(), sm), Column(r.getEnd(), sm));
+}
+
+std::string location(clang::SourceLocation const& l, clang::SourceManager const& sm) {
+	std::string str;
+	llvm::raw_string_ostream ss(str);
+	l.print(ss,sm);
+	return ss.str();
+}
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=xml\_creator/xml\_creator.cpp]
+#include "xml_creator/XMLcreator.h"
+
+void CreateXML(std::vector<Root *> *root_vect, char *file_name) {
+  
+  tinyxml2::XMLDocument *xml_doc = new tinyxml2::XMLDocument();
+  tinyxml2::XMLElement *file_element = xml_doc->NewElement("File");
+  xml_doc->InsertEndChild(file_element);
+
+  tinyxml2::XMLElement *name_element = xml_doc->NewElement("Name");
+  tinyxml2::XMLText* name_text = xml_doc->NewText(file_name);
+  name_element->InsertEndChild(name_text);
+  file_element->InsertEndChild(name_element);
+
+
+  for(std::vector<Root *>::iterator root_itr = root_vect->begin(); root_itr != root_vect->end(); ++ root_itr)     
+    (*root_itr)->CreateXMLFunction(xml_doc);
+  
+
+  std::string out_xml_file (file_name);
+  size_t ext = out_xml_file.find_last_of(".");
+  if (ext == std::string::npos)
+    ext = out_xml_file.length();
+  out_xml_file = out_xml_file.substr(0, ext);
+  std::cout << out_xml_file << std::endl;
+  
+  out_xml_file.insert(ext, "_pragmas.xml");
+  std::cout << out_xml_file << std::endl;
+
+  xml_doc->SaveFile(out_xml_file.c_str());
+}
+\end{lstlisting}
+
+
+\section{Run-time}
+\subsection{Profiler}
+\begin{lstlisting}[language=CCC, caption=profile\_tracker.h]
+#include <fstream>
+#include <time.h>     
+#include <iostream>
+#include <unistd.h>
+
+#define log_file "log_file.xml"
+
+struct ProfileTrackParams {
+
+	ProfileTrackParams(int funct_id, int pragma_line)
+		: funct_id_(funct_id) ,pragma_line_(pragma_line), num_for_iteration_set_(false) {}
+	/* Costructor for parallel for */
+	ProfileTrackParams(int funct_id, int pragma_line, int n) 
+		: funct_id_(funct_id), pragma_line_(pragma_line), num_for_iteration_(n), num_for_iteration_set_(true) {}
+
+	int funct_id_; 
+	int pragma_line_;
+	/* In the case of a parallel for this variable saves the number of the iteration of the for */
+	int num_for_iteration_;
+	bool num_for_iteration_set_;
+};
+
+/*
+ * ----- Class that keep track of the children time and the father of the current pragma in execution ----
+ */
+class ProfileTracker {
+
+	clock_t start_time_;
+	clock_t end_time_;
+
+	int num_for_iteration_;
+	bool num_for_iteration_set_;
+
+	/* These functions print the result of the profiling in a log file */
+	void PrintPragma();
+	void PrintFunction();
+
+public:
+	int pragma_line_;
+	int funct_id_;
+
+	double elapsed_time_;
+	/* Time spent by the children of the current pragma or function */
+	double children_elapsed_time_;
+
+	/* Keeps track of which function/pragma has invoked the current function/pragma */
+	ProfileTracker *previous_pragma_executed_;
+
+	/* In the costructor a timer is started */
+	ProfileTracker(const ProfileTrackParams & p);
+	/* In the destructor the timer is stopped and the elapsed time is written in the log file */
+	~ProfileTracker();
+
+	/* This is necessary to allow to create an object inside the declaration of an if stmt */
+	operator bool() const  { return true; }
+};
+
+/*
+ * ---- Singleton class that open and close the log file -----
+ */
+class ProfileTrackerLog {
+
+	/* Keeps track of which function/pragma has invoked the current function/pragma */
+	ProfileTracker *current_pragma_executing_;
+
+	/* Create the log file and write in it the hardware spec */
+	ProfileTrackerLog ();
+
+	void WriteArchitecturesSpec();
+	size_t getTotalSystemMemory();    
+
+public:
+	/* File where the log is written */
+	std::ofstream log_file_;
+
+	static ProfileTrackerLog* getInstance();
+	/* Substitute the pointer of the current pragma in execution and return the previous value */
+	ProfileTracker *ReplaceCurrentPragma(ProfileTracker *current_pragma_executing_);
+
+	/* Save and close the log file */
+	~ProfileTrackerLog();
+
+};
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=profile\_tracker.cpp]
+#include "profile_tracker/profile_tracker.h"
+
+
+/*
+ * ---- PROFILE TRACKER LOG ----
+ */
+ProfileTrackerLog::ProfileTrackerLog () {
+	current_pragma_executing_ = NULL;
+	log_file_.open(log_file);
+	log_file_ << "<LogFile>" << std::endl;
+	WriteArchitecturesSpec();
+}
+
+void ProfileTrackerLog::WriteArchitecturesSpec() {
+	log_file_ << "	<Hardware ";
+	log_file_ << "NumberofCores=\"" << std::thread::hardware_concurrency() << "\" ";
+  	log_file_ << "MemorySize=\"" << getTotalSystemMemory() << "\"/>" << std::endl;
+}	
+
+size_t ProfileTrackerLog::getTotalSystemMemory() {
+   	/*long pages = sysconf(_SC_PHYS_PAGES);
+   	long page_size = sysconf(_SC_PAGE_SIZE);
+   	return (pages * page_size)/1024/1024;*/
+   	return 2000;
+}
+
+ProfileTrackerLog* ProfileTrackerLog::getInstance() {
+    static ProfileTrackerLog log;
+    return &log;
+}
+
+ProfileTrackerLog::~ProfileTrackerLog() {
+	log_file_ << "</LogFile>" << std::endl;
+	log_file_.close();
+}
+
+ProfileTracker *ProfileTrackerLog::ReplaceCurrentPragma(ProfileTracker *current_pragma_executing) {
+	ProfileTracker *tmp = current_pragma_executing_;
+	current_pragma_executing_ = current_pragma_executing;
+	return tmp;
+}
+
+
+/* 
+ * ---- PROFILE TRACKER ----
+ */
+ProfileTracker::ProfileTracker(const ProfileTrackParams & p) {
+	previous_pragma_executed_ = ProfileTrackerLog::getInstance()->ReplaceCurrentPragma(this);
+
+	children_elapsed_time_ = 0;	
+
+	pragma_line_ = p.pragma_line_;
+	funct_id_ = p.funct_id_;
+	num_for_iteration_set_ = p.num_for_iteration_;
+
+	if(num_for_iteration_set_)
+		num_for_iteration_ = p.num_for_iteration_;
+
+	start_time_ = clock();
+}
+
+ProfileTracker::~ProfileTracker() {
+	end_time_ = clock();
+	elapsed_time_ = ((double)(end_time_ - start_time_))/CLOCKS_PER_SEC;
+	if(previous_pragma_executed_) {
+		previous_pragma_executed_->children_elapsed_time_ += elapsed_time_;
+	}	
+	ProfileTrackerLog::getInstance()->ReplaceCurrentPragma(previous_pragma_executed_);
+
+	if(pragma_line_ == 0)
+		PrintFunction();
+	else
+		PrintPragma();
+
+}
+ 
+void ProfileTracker::PrintPragma() {
+	ProfileTrackerLog::getInstance()->log_file_ << "	<Pragma" \
+											 << " fid=\"" << funct_id_ << "\" pid=\"" << pragma_line_ << "\" ";
+	if(previous_pragma_executed_) {
+		if(previous_pragma_executed_->pragma_line_ != 0)
+			ProfileTrackerLog::getInstance()->log_file_ << "callerid=\"" << previous_pragma_executed_->pragma_line_ << "\" "; 
+		else 
+			ProfileTrackerLog::getInstance()->log_file_ << "callerid=\"" << previous_pragma_executed_->funct_id_ << "\" "; 
+	}
+	ProfileTrackerLog::getInstance()->log_file_ << "elapsedTime=\"" << elapsed_time_ << "\" " \
+											   << "childrenTime=\"" << children_elapsed_time_ << "\"";
+	if(num_for_iteration_set_)
+	 	ProfileTrackerLog::getInstance()->log_file_ << " loops=\"" << num_for_iteration_ << "\"";
+	ProfileTrackerLog::getInstance()->log_file_ << "/>" << std::endl; 
+
+}
+
+void ProfileTracker::PrintFunction() {
+	ProfileTrackerLog::getInstance()->log_file_ << "	<Function" \
+												 << " fid=\"" << funct_id_ << "\" ";
+	if(previous_pragma_executed_) {
+		if(previous_pragma_executed_->pragma_line_ != 0)
+			ProfileTrackerLog::getInstance()->log_file_ << "callerid=\"" << previous_pragma_executed_->pragma_line_ << "\" "; 
+		else 
+			ProfileTrackerLog::getInstance()->log_file_ << "callerid=\"" << previous_pragma_executed_->funct_id_ << "\" "; 
+	}
+	ProfileTrackerLog::getInstance()->log_file_ << "elapsedTime=\"" << elapsed_time_ <<  "\" " \
+											   << "childrenTime=\"" << children_elapsed_time_ << "\"/>" << std::endl; 
+
+
+}
+\end{lstlisting}
+\subsection{Final exectution}
+\begin{lstlisting}[language=CCC, caption=thread\_pool.h]
+#include <string>
+#include <thread>
+#include <vector>
+#include <mutex>
+#include <map>
+#include <math.h>
+#include <iostream>
+#include <condition_variable>
+#include <queue>
+#include <exception>
+#include <sys/time.h>
+
+#include "xml_creator/tinyxml2.h"
+
+int chartoint(const char *cc);
+int chartoint(char *cc);
+
+class ForParameter {
+public:
+    const int thread_id_;
+    const int num_threads_;
+    ForParameter(int thread_id, int num_threads) : thread_id_(thread_id), num_threads_(num_threads) {}
+};
+
+class NestedBase {
+public:
+
+    NestedBase(int pragma_id) : pragma_id_(pragma_id) {}
+    
+    int pragma_id_;
+    std::queue<std::shared_ptr<NestedBase>> todo_job_;
+
+    void launch_todo_job() {
+        while(todo_job_.size() != 0) {
+            todo_job_.front()->callme(ForParameter(0, 1));
+            todo_job_.pop();
+        }
+    }
+    
+    virtual void callme(ForParameter for_param) = 0;
+    virtual std::shared_ptr<NestedBase> clone() const = 0;
+};
+
+class ThreadPool {
+public:
+    typedef int Jobid_t;
+
+    struct Job
+    {
+        std::shared_ptr<NestedBase> nested_base_;
+        ForParameter for_param_;
+        Job(std::shared_ptr<NestedBase> nested_base, ForParameter for_param)
+            : nested_base_(nested_base), for_param_(for_param) {}
+    };
+
+    /* Launches the threads */
+    void init(int pool_size);
+
+    /* Called by the task to be put in the job queue */
+    bool call(std::shared_ptr<NestedBase> nested_base);
+    void call_sections(std::shared_ptr<NestedBase> nested_b);
+    void call_parallel(std::shared_ptr<NestedBase> nested_b);
+    void call_for(std::shared_ptr<NestedBase> nested_b);
+    void call_barrier(std::shared_ptr<NestedBase> nested_b);
+
+    /* Push a job in the job queue */
+    void push(std::shared_ptr<NestedBase> nested_base, ForParameter for_param, int thread_id);
+    void push_completed_job(std::shared_ptr<NestedBase> nested_base, ForParameter for_param);
+    void push_termination_job(int thread_id);
+
+    /* Pause a thread till the job[job_id] complete */
+    void join(Jobid_t job_id);
+
+    void joinall();
+
+    static ThreadPool* getInstance(std::string file_name);
+
+    /* Map the thread::id to an integer going from 0 to num_thread - 1 */
+    std::map<std::thread::thread::id, int> thread_id_to_int_;
+
+    ~ThreadPool() { joinall(); }
+
+private:
+    struct ScheduleOptions {
+        int pragma_id_;
+        int caller_id_;
+        /* In case of a parallel for, specify to the job which part of the for to execute */
+        int thread_id_;
+        /* Idicates the pragma type: parallel, task, ... */
+        std::string pragma_type_;
+        /* Indicates the threads that have to run the task */
+        std::vector<int> threads_;
+        /* List of pragma_id_ to wait before completing the task */
+        std::vector<int> barriers_;
+    };
+
+    struct JobIn {
+        Job job_;
+        /* ID of the job = pragma line number */
+        Jobid_t job_id_;
+        Jobid_t pragma_id_;
+        /* Pragma type, e.g. OMPParallelDirective, OMPTaskDirective, ... */
+        std::string job_type_;
+        /* Fix the bug where a thread waits for another thread which already nofied to have compleated */
+        bool job_completed_ = false;
+
+        bool terminated_with_exceptions_ = false;
+
+        std::unique_ptr<std::condition_variable> done_cond_var_;
+
+        std::vector<int> barriers_;
+
+        JobIn(std::shared_ptr<NestedBase> nested_base, ForParameter for_param)
+                : job_(nested_base, for_param), job_completed_(false) {}
+
+    };
+
+    struct JobQueue {
+        Jobid_t j_id_;
+        int thread_id_;
+        JobQueue(Jobid_t j_id, int thread_id) : j_id_(j_id), thread_id_(thread_id) {}
+    };
+
+    ThreadPool(std::string file_name);
+    
+    void run(int id);
+
+    std::map<int, ScheduleOptions> sched_opt_;
+
+    std::vector<std::thread> threads_pool_; // not thread safe
+    
+    /* Job queue for each thread */
+    std::map<int, std::queue<JobQueue>> work_queue_;
+    
+    /* For each pragma the list of jobs executing that pragma, e.g. in case of parallel for */
+    //typedef std::pair<Jobid_t, std::thread::id> JobKey;
+    std::map<int, std::vector<JobIn>> known_jobs_;
+    //std::map<int, std::map<int, JobIn>> known_jobs_;
+    /* Mutex used by std::condition_variable to synchronize jobs execution */
+    //std::mutex cond_var_mtx;
+    std::map<std::thread::id, std::mutex> cond_var_mtx;
+    std::mutex job_pop_mtx;
+    std::mutex job_end;
+};
+
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=thread\_pool.cpp]
+/*
+* In case of a parallel pragma is known that each pragma present in the parallel's barrier list has been
+* invoked by the thread that runs the parallel pragma.
+*
+* In case of a barrier pragma is known that each pragma present in the barrier's barrier list has been invoked
+* by the same thread that invoked the barrieri pragma.
+*/
+
+
+#include "threads_pool.h"
+
+
+std::mutex singleton_mtx;
+
+
+ThreadPool* ThreadPool::getInstance(std::string file_name) {
+    singleton_mtx.lock();
+    static ThreadPool thread_pool(file_name);
+    singleton_mtx.unlock();
+    return &thread_pool;
+}
+
+
+ThreadPool::ThreadPool(std::string file_name) {
+    /* Create schdule xml file name from source code file name, e.g. test.cpp -> test_schedule.xml*/
+    std::string in_xml_file (file_name);
+    size_t ext = in_xml_file.find_last_of(".");
+    if (ext == std::string::npos)
+        ext = in_xml_file.length();
+    in_xml_file = in_xml_file.substr(0, ext);
+    in_xml_file.insert(ext, "_schedule.xml");
+
+    tinyxml2::XMLDocument xml_doc;
+    //xml_doc.LoadFile(in_xml_file.c_str());
+    xml_doc.LoadFile("schedule.xml");
+
+    tinyxml2::XMLElement *threads_num_element = xml_doc.FirstChildElement("Schedule")->FirstChildElement("Cores");
+
+    const char* threads_num = threads_num_element->GetText();
+    /* Set the number of thread as the number of cores plus one thread wich is used to run parallel and sections job */
+    init(chartoint(threads_num));
+
+    tinyxml2::XMLElement *pragma_element = xml_doc.FirstChildElement("Schedule")->FirstChildElement("Pragma");
+    while(pragma_element != NULL) {
+        ScheduleOptions sched_opt;
+
+        const char* pragma_id = pragma_element->FirstChildElement("id")->GetText();
+        int id = chartoint(pragma_id);
+        sched_opt.pragma_id_ = id;
+        
+
+        tinyxml2::XMLElement *pragma_type_element = pragma_element->FirstChildElement("Type");
+        const char* pragma_type = pragma_type_element->GetText();
+        sched_opt.pragma_type_ = pragma_type;
+
+        tinyxml2::XMLElement *thread_element = pragma_element->FirstChildElement("Threads");
+        if(thread_element != NULL)
+            thread_element = thread_element->FirstChildElement("Thread");
+        
+        while(thread_element != NULL){
+            const char *thread_id = thread_element->GetText();
+            sched_opt.threads_.push_back(chartoint(thread_id));
+
+            thread_element = thread_element->NextSiblingElement("Thread");
+        }
+        
+        tinyxml2::XMLElement *barriers_element = pragma_element->FirstChildElement("Barrier");
+        if(barriers_element != NULL)
+            barriers_element = barriers_element->FirstChildElement("id");
+        while(barriers_element != NULL){
+            const char *thread_id = barriers_element->GetText();
+            sched_opt.barriers_.push_back(chartoint(thread_id));
+
+            barriers_element = barriers_element->NextSiblingElement("id");
+        }
+
+        sched_opt_[id] = sched_opt;
+        pragma_element = pragma_element->NextSiblingElement("Pragma");
+    }
+        //for(std::map<int, ScheduleOptions>::iterator itr = sched_opt_.begin(); itr != sched_opt_.end(); ++ itr)
+        //std::cout << "Pragma id: " << (*itr).second.pragma_id_ << ", type: " << (*itr).second.pragma_type_ << std::endl;
+
+}
+
+
+void ThreadPool::init(int pool_size)
+{
+    /* This is needed cause otherwise the main process would be considered as thread num 0*/
+    thread_id_to_int_[std::this_thread::get_id()] = -1;
+    //std::cout << std::this_thread::get_id() << " = -1 " << std::endl;
+
+    threads_pool_.reserve(pool_size);
+    for(int i = 0; i < pool_size; i++) {
+        threads_pool_.push_back(std::thread(&ThreadPool::run,this, i));
+    }
+
+}
+
+/* If a job has to allocate a job on its own thread, it first allocates all other job and then execute directly that job */
+/* This solve the problem of a parallel for. */
+bool ThreadPool::call(std::shared_ptr<NestedBase> nested_b) {
+    int thread_number = sched_opt_[nested_b->pragma_id_].threads_.size();
+    int thread_id;
+    /* Get the integer id of the running thread */
+    int my_id = thread_id_to_int_[std::this_thread::get_id()];
+    /* In case of a parallel for */
+
+    if(sched_opt_[nested_b->pragma_id_].pragma_type_.compare("OMPForDirective") == 0
+        || sched_opt_[nested_b->pragma_id_].pragma_type_.compare("OMPParallelForDirective") == 0) {
+        
+        call_for(nested_b);
+
+    }else {
+        thread_id = sched_opt_[nested_b->pragma_id_].threads_[0];
+        if(thread_id != my_id) {
+            push(nested_b->clone(), ForParameter(0, 1), thread_id);
+            
+            if(sched_opt_[nested_b->pragma_id_].pragma_type_.compare("OMPParallelDirective") == 0) {
+                int barriers_id = sched_opt_[nested_b->pragma_id_].barriers_[0];
+
+                join(barriers_id);
+                
+                int thread_num = sched_opt_[nested_b->pragma_id_].threads_[0];
+                std::thread::id t_id = threads_pool_[thread_num].get_id();
+                int barriers_number = sched_opt_[nested_b->pragma_id_].barriers_.size();
+                
+                for (int i = 1; i < barriers_number; i ++) {
+                    barriers_id = sched_opt_[nested_b->pragma_id_].barriers_[i];
+                    join(barriers_id);
+                }
+            }
+        }else {
+            if(sched_opt_[nested_b->pragma_id_].pragma_type_.compare("OMPParallelDirective") == 0)
+                call_parallel(nested_b);
+            else if (sched_opt_[nested_b->pragma_id_].pragma_type_.compare("OMPSectionsDirective") == 0
+                || sched_opt_[nested_b->pragma_id_].pragma_type_.compare("OMPSingleDirective") == 0)
+                call_sections(nested_b);
+            else if(sched_opt_[nested_b->pragma_id_].pragma_type_.compare("OMPBarrierDirective") == 0)
+                call_barrier(nested_b);
+            else {
+                push_completed_job(nested_b, ForParameter(0, 1));
+                return true;
+            }
+        }
+
+    }
+    return false;
+}
+
+void ThreadPool::call_sections(std::shared_ptr<NestedBase> nested_b){
+    nested_b->callme(ForParameter(0, 1));
+    
+    int barriers_number = sched_opt_[nested_b->pragma_id_].barriers_.size();
+    int barrier_id;
+    for(int i = 0; i < barriers_number; i ++) {
+        barrier_id = sched_opt_[nested_b->pragma_id_].barriers_[i];
+        join(barrier_id);
+    }
+    push_completed_job(nested_b, ForParameter(0, 1));
+}
+
+void ThreadPool::call_parallel(std::shared_ptr<NestedBase> nested_b) {
+    nested_b->callme(ForParameter(0, 1));
+
+    if(sched_opt_[nested_b->pragma_id_].pragma_type_.compare("OMPParallelDirective") == 0) {
+        int barriers_id = sched_opt_[nested_b->pragma_id_].barriers_[0];
+        join(barriers_id);
+            
+        int barriers_number = sched_opt_[nested_b->pragma_id_].barriers_.size();
+        for (int i = 1; i < barriers_number; i ++) {
+            barriers_id = sched_opt_[nested_b->pragma_id_].barriers_[i];
+            int thread_num = sched_opt_[barriers_id].threads_[0];
+            std::thread::id t_id = threads_pool_[thread_num].get_id();
+            join(barriers_id);
+        }
+    }
+}
+
+void ThreadPool::call_for(std::shared_ptr<NestedBase> nested_b) {
+    int thread_number = sched_opt_[nested_b->pragma_id_].threads_.size();
+    int thread_id;
+    /* Get the integer id of the running thread */
+    int my_id = thread_id_to_int_[std::this_thread::get_id()];
+    for(int i = 0; i < thread_number; i ++) {
+        thread_id = sched_opt_[nested_b->pragma_id_].threads_[i];
+        if(thread_id != my_id) {
+            push(nested_b->clone(), ForParameter(i, thread_number), thread_id);
+        }
+    }
+    /* If a son and a father are on the same thread!!! */
+    for(int i = 0; i < thread_number; i ++) {
+        thread_id = sched_opt_[nested_b->pragma_id_].threads_[i];
+        if(thread_id == my_id) {
+            push_completed_job(nested_b->clone(), ForParameter(i, thread_number));
+            nested_b->callme(ForParameter(i, thread_number));
+        }
+    }
+
+    //if(sched_opt_[nested_b->pragma_id_].barriers_.size() > 0) {
+        int barriers_id = sched_opt_[nested_b->pragma_id_].barriers_[0];
+        join(barriers_id);
+    //}
+}
+
+void ThreadPool::call_barrier(std::shared_ptr<NestedBase> nested_b) {
+    int barriers_number = sched_opt_[nested_b->pragma_id_].barriers_.size();
+    int barriers_id, threads_num;
+    for (int i = 0; i < barriers_number; i ++) {
+        barriers_id = sched_opt_[nested_b->pragma_id_].barriers_[i];
+        join(barriers_id);
+    }
+}
+
+/* Insert a job wich has the flag completed already setted. This is necessary in case a thread executes more
+job consecutively */
+void ThreadPool::push_completed_job(std::shared_ptr<NestedBase> nested_base,
+                                     ForParameter for_param) {
+
+    Jobid_t id = nested_base->pragma_id_;
+        
+    JobIn job_in(nested_base, for_param);
+    job_in.job_id_ = id;
+    job_in.job_completed_ = true;
+
+    job_pop_mtx.lock();
+    if(known_jobs_[id].size() == 0)
+        known_jobs_[id].reserve(for_param.num_threads_);
+    known_jobs_[id].push_back(std::move(job_in));
+    job_pop_mtx.unlock();
+}
+
+
+void ThreadPool::push(std::shared_ptr<NestedBase> nested_base,
+                                     ForParameter for_param, int thread_id) {
+    
+    Jobid_t id = nested_base->pragma_id_;
+        
+    JobIn job_in(nested_base, for_param);
+    job_in.job_id_ = id;
+    job_in.job_type_ = sched_opt_[nested_base->pragma_id_].pragma_type_;
+    job_in.done_cond_var_ =
+            std::unique_ptr<std::condition_variable>(new std::condition_variable());
+       
+    job_pop_mtx.lock();
+    if(known_jobs_[id].size() == 0)
+        known_jobs_[id].reserve(for_param.num_threads_);
+    known_jobs_[id].push_back(std::move(job_in));
+
+    JobQueue j_q(id, for_param.thread_id_);
+    work_queue_[thread_id].push(j_q);
+    
+    job_pop_mtx.unlock();
+
+}
+
+
+void ThreadPool::push_termination_job(int thread_id) {
+
+    JobQueue j_q(-1, 0);
+    work_queue_[thread_id].push(j_q);
+}
+
+
+void ThreadPool::run(int me) {
+    thread_id_to_int_[std::this_thread::get_id()] = me;
+    while(true) {
+        
+        job_pop_mtx.lock();
+        if(work_queue_[me].size() != 0) {
+
+            JobQueue j_q = work_queue_[me].front();
+            work_queue_[me].pop();
+            job_pop_mtx.unlock();
+            
+            int pragma_id = j_q.j_id_;
+            int thread_id = j_q.thread_id_;
+
+            if(pragma_id != 0) {
+                if(pragma_id == -1)
+                    break;
+                
+                job_pop_mtx.lock();
+                std::vector<JobIn>::iterator j_itr;
+                for(j_itr = known_jobs_[pragma_id].begin(); j_itr != known_jobs_[pragma_id].end(); ++ j_itr) {
+                    if(j_itr->job_.for_param_.thread_id_ == thread_id)
+                        break;
+                }
+               
+                job_pop_mtx.unlock();
+                ForParameter for_param = j_itr->job_.for_param_;
+                
+                try {
+                    j_itr->job_.nested_base_->callme(for_param);
+                }catch(std::exception& e){
+                    //known_jobs_[pragma_id][thread_id].terminated_with_exceptions_ = true;
+                    std::cerr << "Pragma " << pragma_id << " terminated with exception: " << e.what() << std::endl;
+                }
+
+
+                if(j_itr->job_type_.compare("OMPTaskDirective") == 0
+                    || j_itr->job_type_.compare("OMPSingleDirective") == 0
+                    || j_itr->job_type_.compare("OMPSectionsDirective") == 0)
+                {
+                    int barriers_number = sched_opt_[pragma_id].barriers_.size();
+                    int barrier_id;
+                    for(int i = 0; i < barriers_number; i ++) {
+                        barrier_id = sched_opt_[pragma_id].barriers_[i];
+                        join(barrier_id);
+                    }
+                }
+
+                job_end.lock();
+                j_itr->job_completed_ = true;
+                j_itr->done_cond_var_->notify_one();
+                job_end.unlock();
+            }
+        }else {
+            job_pop_mtx.unlock();
+        }
+    }
+}
+
+
+void ThreadPool::join(Jobid_t job_id) {
+
+    /*for(int i = 0; i < known_jobs_[job_id].size(); i ++) {
+        if(known_jobs_[job_id][i].job_completed_ != true) {
+            std::unique_lock<std::mutex> lk(cond_var_mtx);
+            known_jobs_[job_id][i].done_cond_var_->wait(lk);
+        }
+    }*/
+    //std::mutex cond_var_mtx;
+    
+    std::vector<JobIn>::iterator j_itr;
+    for(j_itr = known_jobs_[job_id].begin(); j_itr != known_jobs_[job_id].end(); ++ j_itr) {
+        job_end.lock();
+        if((*j_itr).job_completed_ != true){
+            job_end.unlock();
+            std::unique_lock<std::mutex> lk(cond_var_mtx[std::this_thread::get_id()]);
+            j_itr->done_cond_var_->wait(lk);            
+        }else{
+            job_end.unlock();
+        }
+    }
+    job_pop_mtx.lock();
+    known_jobs_.erase(job_id);
+    job_pop_mtx.unlock();
+}
+
+
+void ThreadPool::joinall() {
+    /* Push termination job in the working queue */
+    std::cout << "Joinall" << std::endl;
+    for (int i = 0; i < threads_pool_.size(); i ++)
+        push_termination_job(i);
+    
+    /* Joining on all the threads in the thread pool */
+    for(int i = 0; i < threads_pool_.size(); i++)
+        threads_pool_[i].join();
+
+}
+
+
+int chartoint(const char *cc){
+    std::string s(cc);
+    char c;
+    int n = 0;
+    int tmp;
+    int i = s.size();
+    for(std::string::iterator sitr = s.begin(); sitr != s.end(); ++ sitr){
+        c = *sitr;
+        tmp = c - 48;
+        tmp = tmp*pow(10, i-1);
+        n += tmp;
+        i --;
+    }
+    return n;
+}
+
+int chartoint(char *cc){
+    const char *c = cc;
+    return chartoint(c);
+}
+\end{lstlisting}
+
+\chapter{Python}
+
+\begin{lstlisting}[language=CCC, caption=graphCreator.py]
+import sys
+import pargraph as par
+import copy
+import schedule as sched
+import profiler as pro
+import time
+import multiprocessing
+import itertools
+import random
+import threading
+
+""" Usage: call with <filename> <pragma_xml_file> <executable_name> <profiling_interations> True/False (for output) """
+
+if __name__ == "__main__":
+
+	pragma_xml = sys.argv[1]
+	executable = sys.argv[2]
+	count = int(sys.argv[3])
+	output = sys.argv[4]
+	execution_time = float(sys.argv[5])
+	deadline = float(sys.argv[6])
+	multi = sys.argv[7]
+
+	#runs count time the executable and aggregates the informations in executable_profile.xml. The single profile outputs are saved as profile+iter.xml
+	profile_xml = pro.profileCreator(count, executable)
+
+	#return the nested dot graphs in code style (one for each function)
+	visual_nested_graphs = par.getNesGraph(pragma_xml, profile_xml)
+
+	#returns the graphs to be visualized and the object graphs in flow style (one for each function)
+	(visual_flow_graphs, flow_graphs) = par.getParalGraph(pragma_xml, profile_xml) 
+
+	i = 0
+
+	for g in visual_nested_graphs:
+		g.write_pdf('graphs/%s_code.pdf'%flow_graphs[i].type)
+		g.write_dot('graphs/%s_code.dot'%flow_graphs[i].type)
+		i += 1
+
+	i = 0
+	for g in visual_flow_graphs:
+		g.write_pdf('graphs/%s_flow.pdf'%flow_graphs[i].type)
+		g.write_dot('graphs/%s_flow.dot'%flow_graphs[i].type)
+		i += 1
+
+	#creates the flow type graph --> flow.xml
+	par.dump_graphs(flow_graphs)
+	#adding to the original xml the profiling informations --> code.xml
+	pro.add_profile_xml(profile_xml, pragma_xml)
+	#creating the total graph with the call-tree
+	func_graph = par.create_complete_graph(visual_flow_graphs, profile_xml)
+	#creating the graphs with the function calls
+	func_graph.write_pdf('graphs/function_graphs.pdf')
+	func_graph.write_dot('graphs/function_graphs.dot')
+
+	#creating the expanded graph where the functions are inserted in the flow graph
+	exp_flows = copy.deepcopy(flow_graphs)
+	par.explode_graph(exp_flows)
+	main_flow = sched.get_main(exp_flows)
+
+	#creating a generator for the expanded graph
+	gen = sched.generate_task(main_flow)
+
+	#creating a new generator for the expanded graph
+	sched.make_white(main_flow)
+
+	#getting the number of physical cores of the machine profiled
+	max_flows = sched.get_core_num(profile_xml)
+	max_flows = 4
+	#getting cores of the actual machine, but the problem is multithreading
+	cores = multiprocessing.cpu_count()
+	if cores == 1:
+		cores = 2
+
+	#initializing all the lists for the parallel scheduling algorithm
+	tasks_list = []
+	task_list = []
+	flows_list = []
+	optimal_flow_list = []
+	p_list = []
+	queue_list = []
+	results = []
+	num_tasks = 0
+
+	#getting the number of tasks in the expanded graph and creating a list of task
+	for task in gen:
+		task_list.append(task)
+		num_tasks += 1
+
+	if output == 'True':
+		sched.make_white(main_flow)
+		par.scanGraph(main_flow)
+
+	#starting the parallel or sequential search of the best solution with a timing constrain
+	if multi == 'parallel':
+		for core in range(cores):
+			tmp = []
+			optimal_flow_list.append(tmp)
+			tmp_2 = []
+			flows_list.append(tmp_2)
+			random.shuffle(task_list)
+			tasks_list.append(copy.deepcopy(task_list))
+			q = sched.Queue()
+			queue_list.append(q)
+			p_list.append(multiprocessing.Process(target = sched.get_optimal_flow, args = (flows_list[core], tasks_list[core], 0, optimal_flow_list[core], num_tasks, max_flows, execution_time, queue_list[core],  )))
+			print "starting core: ",core
+			p_list[core].start()
+		#getting the results from the processes
+		for queue in queue_list:
+			t = queue.q.get()
+			results.append(t)
+		#joining all the processes
+		i = 0
+		for p in p_list:
+			p.join()
+			print "core ", i, " joined"
+			i += 1
+		#getting the best result
+		optimal_flow = results[0]
+		best = 0
+		for i in range(len(results)):
+			print "result:"
+			for flow in results[i]:
+				flow.dump()
+				if sched.get_cost(results[i]) < sched.get_cost(optimal_flow):
+					best = i
+		optimal_flow = results[best]
+	else:
+			optimal_flow = []
+			flow_list = []
+			execution_time += time.clock()
+			print "searching best schedule"
+			sched.get_optimal_flow_single(flow_list, task_list, 0, optimal_flow, num_tasks, max_flows, execution_time )
+
+
+
+	#printing the best result	
+	print "solution:"
+	for flow in optimal_flow:
+		flow.dump("\t")
+		print "\ttime:",flow.time
+
+	#substitutes "for tasks" with splitted versions if present in the optimal flows
+	par.add_new_tasks(optimal_flow, main_flow)
+	sched.make_white(main_flow)
+	gen_ = sched.generate_task(main_flow)
+
+	t_list = []
+	for t in gen_:
+		t_list.append(t)
+		"""
+		print t.type," @ ", t.start_line, " has parents:"
+		for p in t.parent:
+			print "\t ",p.type," @ ", p.start_line
+		print "and children:"
+		for c in t.children:
+			print "\t ",c.type," @ ", c.start_line
+		print
+		"""
+
+	#adds id's to all the tasks to retrive the flow to which they belong
+	par.add_flow_id(optimal_flow, t_list)
+
+	#sets arrival times and deadlines using a modified version of the chetto algorithm
+	sched.chetto(main_flow, deadline, optimal_flow)
+
+	#checks if the schedule is feasible and in case creates the schedule file
+	if sched.check_schedule(main_flow):
+		sched.create_schedule(main_flow, len(optimal_flow))
+		sched.make_white(main_flow)
+		#sched.print_schedule(main_flow)
+	else:
+		print "tasks not schedulable, try with more search time"
+
+	#prints extended info of the entire pragma graph
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=pargraph.py]
+import pydot as p
+import profiler as pro
+import xml.etree.cElementTree as ET
+from random import randrange
+import copy
+import schedule as sched
+import re
+import math
+
+colors = (	"beige",  "bisque3",	"bisque4",	"blanchedalmond",	   "blue",  
+"blue1",	"blue2",	"blue3",	"blue4",	"blueviolet",
+"brown",	"brown1",	"brown2",   "brown3", 	"brown4",
+"burlywood",	"burlywood1",	"burlywood2",	"burlywood3",	"burlywood4",
+"cadetblue",	"cadetblue1",	"cadetblue2",	"cadetblue3",	"cadetblue4",
+"chartreuse",	"chartreuse1",	"chartreuse2",	"chartreuse3",	"chartreuse4",
+"chocolate",	"chocolate1",	"chocolate2",	"chocolate3",	"chocolate4",
+"coral",	"coral1",	"coral2",	"coral3",	"coral4",
+"cornflowerblue",	"crimson",	   "cyan",   	"cyan1",	"cyan2",
+"cyan3",	"cyan4",	"darkgoldenrod",	"darkgoldenrod1",	"darkgoldenrod2",
+"darkgoldenrod3",	"darkgoldenrod4",	"darkgreen",	"darkkhaki",	"darkolivegreen",
+"darkolivegreen1",	"darkolivegreen2",	"darkolivegreen3",	"darkolivegreen4",	"darkorange",
+"darkorange1",	"darkorange2",	"darkorange3",	"darkorange4",	"darkorchid",
+"darkorchid1",	"darkorchid2",	"darkorchid3",	"darkorchid4",	"darksalmon",
+"darkseagreen",	"darkseagreen1",	"darkseagreen2",	"darkseagreen3",	"darkseagreen4",
+"darkslateblue",	"darkslategray",	"darkslategray1",	"darkslategray2",	"darkslategray3",
+"darkslategray4",	"darkslategrey",	"darkturquoise",	"darkviolet",	"deeppink",
+"deeppink1",	"deeppink2",	"deeppink3",	"deeppink4",	"deepskyblue",
+"deepskyblue1",	"deepskyblue2",	"deepskyblue3",	"deepskyblue4",	"dimgray",
+"dimgrey",	"dodgerblue",	"dodgerblue1",	"dodgerblue2",	"dodgerblue3",
+"dodgerblue4",	"firebrick",	"firebrick1",	"firebrick2",	"firebrick3",
+"firebrick4",	"forestgreen", "gold",   	"gold1",	"gold2",	
+"gold3",	"gold4",    "goldenrod",	"goldenrod1",	"goldenrod2",	"goldenrod3",	"goldenrod4")
+
+class Node(object):
+    def __init__(self, Ptype, s_line, time, variance):
+        self.type = Ptype
+        self.start_line = s_line
+        self.children = []
+        self.parent = []
+        self.options = []
+        self.time = float(time)
+        self.variance = variance
+        self.end_line = 0
+        self.callerid = []
+        self.deadline = None
+        self.arrival = None
+        self.d = None
+        self.children_time = 0
+        self.in_time = 0
+        self.color = 'white'
+        self.id = None
+    def add(self, x):	
+    	x.parent.append(self)
+    	self.children.append(x)
+    def myself(self):
+		if self.type != 'BARRIER':
+			print "pragma node: ", self.type, "\n    start_line: ", self.start_line, "\n    endl_line", self.end_line
+			if self.type.find("_end") == -1:
+				if self.time != 0:
+					print "    time: ", self.time
+					print "    variance: ", self.variance
+					print "    children time: ", self.children_time
+					print "    self time: ", self.in_time
+				else:
+					print "    not executed"
+				if(len(self.options) != 0):
+					print "    Options:"
+					for i in self.options:
+						print "        ",i[0]," ",i[1]
+			print "     chetto deadline :", self.d
+			print "     chetto arrival :", self.arrival
+		else:
+			print "pragma node: ", self.type, "\n    start_line: ", self.start_line
+		print
+
+class For_Node(Node): 
+    def __init__(self, Ptype, s_line, init_type, init_var, init_value, init_cond, init_cond_value, init_increment, init_increment_value, time, variance, mean_loops):
+        Node.__init__(self, Ptype, s_line, time, variance)
+        self.init_type = init_type
+        self.init_var = init_var
+        self.init_value = init_value
+        self.init_cond = init_cond
+        self.init_cond_value = init_cond_value
+        self.init_increment = init_increment
+        self.init_increment_value = init_increment_value
+        self.mean_loops = mean_loops
+    def myself(self):
+		print "for node: ", self.type, "\n    start_line: ", self.start_line, "\n    endl_line: ", self.end_line, "\n    init_type:", self.init_type, "\n    init_var: ", self.init_var, "\n    init_value: ", self.init_value,"\n    init_condition: ", self.init_cond, "\n    init_condition_value: ", self.init_cond_value, "\n    init_increment_type: ", self.init_increment,"\n    init_increment: ", self.init_increment_value, "\n    mean_loops:", self.mean_loops
+		print "     chetto deadline :", self.d
+		print "     chetto arrival :", self.arrival
+		if(len(self.options) != 0):
+			print "    Options:"
+			for i in self.options:
+				print "        ", i[0], " ", i[1]
+		if self.time != 0:
+			print "    time: ", self.time
+			print "    variance: ", self.variance
+			print "    children time: ", self.children_time,"\n"
+			print "    self time: ", self.in_time,"\n"
+		else:
+			print "    not executed\n"
+
+class Fx_Node(Node):
+	def __init__(self, Ptype, line, returnType, time, variance, file_name):
+		Node.__init__(self, Ptype, line, time, variance)
+		self.arguments = []
+		self.returnType = returnType
+		self.time = float(time)
+		self.file_name = file_name
+	def add_arg(self, type_):
+		self.arguments.append(type_)
+	def myself(self):
+		print "function node: ", self.type, "() {\n    line: ", self.start_line, "\n    return type: ", self.returnType
+		print "     chetto deadline :", self.d
+		print "     chetto arrival :", self.arrival
+		if(len(self.arguments) != 0):
+			print "    Parameters: "
+			i = 0
+			for par in self.arguments:
+				print "   ", i, ") ", par[0], " ", par[1]
+				i = i + 1
+		else:
+			print "    No input parameters"
+		if self.time != 0:
+			print "    time: ", self.in_time
+			print "    variance: ", self.variance
+			print "    children time: ", self.children_time,"\n}\n"
+		else:
+			print "    not executed\n}\n"
+
+class Function():
+	def __init__(self, time, variance, children_time):
+		self.time = float(time)
+		self.variance = variance
+		self.pragmas = {}
+		self.children_time = float(children_time)
+		self.in_time = float(self.time) - float(self.children_time)
+	def add_pragma(self, pragma):
+		self.pragmas[pragma[0]] = (pragma[1], pragma[2], pragma[3], pragma[4], pragma[5])
+
+class Architecture():
+	def __init__(self, num_cores, tot_memory):
+		self.num_cores = num_cores
+		self.tot_memory = tot_memory
+
+class Time_Node():
+	def __init__(self, func_line, pragma_line ):
+		self.times = []
+		self.func_line = func_line
+		self.pragma_line = pragma_line
+		self.variance = 0
+		self.loops = []
+		self.caller_list = []
+		self.children_time = []
+
+class Flow():
+	def __init__(self):
+		self.tasks = []
+		self.bandwidth = 0
+		self.time = 0
+	def add_task(self, task):
+		self.tasks.append(task)
+		self.update(task)
+	def update(self, task):
+		self.time += task.in_time #float(task.time) - float(task.children_time)
+	def dump(self,prefix=""):
+		print prefix,"flow:"
+		for task in self.tasks:
+			print prefix, "\t", task.type, " ", task.start_line, " ", task.in_time, " id ", task.id
+	def remove_task(self, task):
+		self.tasks.remove(task)
+		self.time -= task.in_time #float(task.time) - float(task.children_time)
+
+class Task():
+	def __init__(self, count, id):
+		self.count = count
+		self.id = []
+		self.id.append(id)
+
+
+def scanGraph(node):
+	#print pre, node.type
+	if node.color != 'black':
+		node.color = 'black'
+		node.myself()
+		print "     has children:"
+		for c in node.children:
+			print "          ",c.type,"@",c.start_line
+		print "     has parent:"
+		for p in node.parent :
+			print "          ",p.type,"@",p.start_line
+		for n in node.children:
+			scanGraph(n)
+
+def indent(elem, level=0):
+    i = "\n" + level * "  "
+    if len(elem):
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "  "
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+        for elem in elem:
+            indent(elem, level + 1)
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+    else:
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
+
+def getParalGraph(pragma_xml, profile_xml):
+	pragma_graph_root = ET.ElementTree(file = pragma_xml).getroot()
+	profile_graph_root = ET.ElementTree(file = profile_xml).getroot()
+
+	functions = pro.getProfilesMap(profile_xml)
+	objGraph = []
+	graphs = []
+	count = 0
+	arch = Architecture(profile_graph_root.find('Hardware/NumberofCores').text, profile_graph_root.find('Hardware/MemorySize').text)
+
+	file_name = pragma_graph_root.find('Name').text
+
+	for n in pragma_graph_root.findall('Function'):
+		graphs.append(p.Dot(graph_type = 'digraph'))
+		name = n.find('Name').text
+		time = float(functions[n.find('Line').text].time)
+		callerid = functions[n.find('Line').text].callerid
+		children_time = float(functions[n.find('Line').text].children_time)
+		root = n.find('Line').text
+		if (time == 0):
+			pragma_graph_root = p.Node(n.find('Line').text, label = name + "()\nnot executed", root = root)
+		else:
+			pragma_graph_root = p.Node(n.find('Line').text, label = name + "()\nexecution time %g" % time, root = root)
+		pragma_graph_root.callerid = callerid
+		graphs[count].add_node(pragma_graph_root)
+		Objroot = Fx_Node(name, n.find('Line').text,n.find('ReturnType').text, float(functions[n.find('Line').text].time), functions[n.find('Line').text].variance, file_name)
+		for par in n.findall('Parameters/Parameter'):
+			Objroot.add_arg( ( par.find('Type').text,par.find('Name').text ) )
+		Objroot.children_time = children_time
+		Objroot.in_time = Objroot.time - children_time
+		for caller in functions[n.find('Line').text].callerid:
+			Objroot.callerid.append(caller)
+		objGraph.append(Objroot)
+		scan(n, graphs[count], pragma_graph_root, objGraph[count], functions[n.find('Line').text].pragmas, root)
+		count = count + 1
+	return (graphs, objGraph)
+
+def scan(xml_tree, pragma_graph, node, treeNode, func_pragmas, root):
+	for d in xml_tree.find('Pragmas').findall('Pragma'):
+		end_line = d.find('Position/EndLine').text
+		key = d.find('Position/StartLine').text
+
+		if key not in func_pragmas:
+			time = 0
+			variance = None
+			loops = 0
+			callerid = None
+			children_time = 0
+		else:
+			time = float(func_pragmas[key][0])
+			variance = func_pragmas[key][1]
+			loops = func_pragmas[key][2]
+			callerid = func_pragmas[key][3]
+			children_time =  float(func_pragmas[key][4])
+
+		tmp_name = d.find('Name').text.replace("::", " ")
+		visual_name = tmp_name+"@%s"%key
+
+		if ("For" in tmp_name ):
+			if (d.find('For/Declaration/InitValue') != None):
+				init_value = d.find('For/Declaration/InitValue').text
+			else:
+				init_value = d.find('For/Declaration/InitVariable').text
+			if (d.find('For/Condition/ConditionValue') != None):
+				init_var = d.find('For/Condition/ConditionValue').text
+			else:
+				init_var = d.find('For/Condition/ConditionVariable').text
+			if(d.find('For/Increment/IncrementValue') != None):
+				inc = d.find('For/Increment/IncrementValue').text
+			else:
+				inc = ""
+			Objchild = For_Node(tmp_name, d.find('Position/StartLine').text, d.find('For/Declaration/Type').text, d.find('For/Declaration/LoopVariable').text, init_value, d.find('For/Condition/Op').text, init_var, d.find('For/Increment/Op').text, inc, time, variance, loops )
+			visual_name = visual_name + "\nfor( " + Objchild.init_var + " = " + Objchild.init_value + "; " + Objchild.init_var + " " + Objchild.init_cond + " " + Objchild.init_cond_value + "; " + Objchild.init_var + " " + Objchild.init_increment + " " + Objchild.init_increment_value + ")"
+		else:
+			Objchild = Node(tmp_name, key, time, variance )
+
+		deadline = None
+		if(d.find('Options')):
+			for op in d.findall('Options/Option'):
+				Objchild.options.append( (op.find('Name').text,[get_parameter(i) for i in op.findall('Parameter')]) )
+				if op.find('Name').text == 'deadline':
+					deadline = op.find('Parameter').text
+		Objchild.end_line = end_line
+		Objchild.callerid.append(callerid)
+		Objchild.deadline = deadline
+		Objchild.children_time = children_time
+		Objchild.in_time = Objchild.time - children_time
+		if (time == 0):
+			child = p.Node(key, label = visual_name + "\nnot executed", root = root)
+		else:
+			child = p.Node(key, label = visual_name + "\nexecution time: " + str(time) + "\nvariance: " + str(variance), root = root)
+		pragma_graph.add_node(node)
+		pragma_graph.add_node(child)
+		pragma_graph.add_edge(p.Edge(node, child))
+		treeNode.add(Objchild)
+		#print Objchild.type,"@",Objchild.start_line," is attached to ",treeNode.type,"@",treeNode.start_line
+
+		if(d.find('Children')):
+			node_ = create_diamond(d.find('Children'), pragma_graph, child, Objchild, func_pragmas, root)
+			tmp_name = (node_.start_line)
+			if tmp_name not in func_pragmas:
+				time = 0
+			else:
+				time = func_pragmas[tmp_name][0]
+			#treeNode = Node('BARRIER_end', tmp_name, 0, 0)
+			#Objchild.add(treeNode)
+			treeNode = node_
+			node = p.Node(tmp_name + "_end", label = "BARRIER", root = root)
+		else:
+			node = child
+			treeNode = Objchild
+
+def create_diamond(tree, graph, node, treeNode, func_pragmas, root):
+	special_node = p.Node(node.get_name().replace("\"", "") + "_end", label = 'BARRIER', root = root)
+	Objspecial_node = Node( 'BARRIER_end' , node.get_name() , 0, 0 )
+	color = colors[randrange(len(colors) - 1)]
+	for d in tree.find('Pragmas').findall('Pragma'):
+
+		end_line = d.find('Position/EndLine').text
+		key = d.find('Position/StartLine').text
+
+		if key not in func_pragmas:
+			time = 0
+			variance = None
+			loops = 0
+			callerid = None
+			children_time = 0
+		else:
+			time = float(func_pragmas[key][0])
+			variance = func_pragmas[key][1]
+			loops = func_pragmas[key][2]
+			callerid = func_pragmas[key][3]
+			children_time = float(func_pragmas[key][4])
+
+		tmp_name = d.find('Name').text.replace("::", " ")
+		visual_name = tmp_name + "@%s" % key
+
+		if ("For" in tmp_name ):
+			loops = func_pragmas[key][2]
+			if (d.find('For/Declaration/InitValue') != None):
+				init_value = d.find('For/Declaration/InitValue').text
+			else:
+				init_value = d.find('For/Declaration/InitVariable').text
+			if (d.find('For/Condition/ConditionValue') != None):
+				init_var = d.find('For/Condition/ConditionValue').text
+			else:
+				init_var = d.find('For/Condition/ConditionVariable').text
+			if(d.find('For/Increment/IncrementValue') != None):
+				inc = d.find('For/Increment/IncrementValue').text
+			else:
+				inc = ""
+			Objchild = For_Node(tmp_name, key, d.find('For/Declaration/Type').text, d.find('For/Declaration/LoopVariable').text, init_value, d.find('For/Condition/Op').text, init_var, d.find('For/Increment/Op').text, inc , time, variance, loops)
+			visual_name = visual_name + "\nfor( " + Objchild.init_var + " = " + Objchild.init_value + "; "+Objchild.init_var + " " + Objchild.init_cond + " " + Objchild.init_cond_value + "; " + Objchild.init_var + " " + Objchild.init_increment + " " + Objchild.init_increment_value + ")"
+		else:
+			Objchild = Node(tmp_name, key, time, variance)
+
+		deadline = None
+		if(d.find('Options')):
+			for op in d.find('Options').findall('Option'):
+				Objchild.options.append( (op.find('Name').text,[get_parameter(i) for i in op.findall('Parameter')]) )
+				if op.find('Name').text == 'deadline':
+					deadline = op.find('Parameter').text
+
+		Objchild.end_line = end_line
+		Objchild.callerid.append(callerid)
+		Objchild.deadline = deadline
+		Objchild.children_time = children_time
+		Objchild.in_time = Objchild.time - children_time
+
+		child = p.Node(key, label = visual_name + "\nexecution time: " + str(time) + "\nvariance: " + str(variance), root = root)
+		graph.add_node(node)
+		graph.add_node(child)
+		graph.add_edge(p.Edge(node, child, color = color))
+		treeNode.add(Objchild)
+
+		if(d.find('Children')):
+			#get the real returned label as name
+			tmp_node = create_diamond(d.find('Children'), graph, child, Objchild, func_pragmas, root)
+			g_node = p.Node(tmp_node.start_line+ "_end", label = 'BARRIER', root = root)
+			graph.add_node(g_node)
+			graph.add_node(special_node)
+			graph.add_edge(p.Edge(g_node, special_node, color = color))
+			#tmp_name = tmp.get_name().replace("\"", "") 
+			#ObjTmp = Node(tmp_name, tmp_name, 0, 0)
+			tmp_node.add(Objspecial_node)
+		else:
+			graph.add_node(child)
+			graph.add_node(special_node)
+			graph.add_edge(p.Edge(child, special_node, color = color))
+			Objchild.add(Objspecial_node)
+	return Objspecial_node
+
+def find_nesting(tree, graph, node, func_pragmas, pre = ""):
+	color = colors[randrange(len(colors) - 1)]
+	for d in tree.find('Pragmas').findall('Pragma'):
+		key = d.find('Position/StartLine').text
+		if(key in func_pragmas):
+			time = "\n execution time: " + str(func_pragmas[key][0])
+			variance = "\nvariance: " + str(func_pragmas[key][1])
+		else:
+			time = "\nnot executed"
+			variance = ""
+		name = d.find('Name').text.replace("::"," ") + "@%s" % key
+		child = p.Node(name, label = name + time + variance)
+		graph.add_node(node)
+		graph.add_node(child)
+		graph.add_edge(p.Edge(node, child, color = color ))
+		#print pre+name
+		if(d.find('Children')):
+			find_nesting(d.find('Children'), graph, child, func_pragmas, pre + " ")
+
+def getNesGraph(xml, profile_xml):
+	tree = ET.ElementTree(file = xml) 
+	profile_graph_root = ET.ElementTree(file = profile_xml).getroot()
+	functions = pro.getProfilesMap(profile_xml)
+
+	root = tree.getroot()
+	graphs = []
+	count = 0
+
+	for n in root.iter('Function'):
+		key = n.find('Line').text
+		time = float(functions[key].time)
+		variance = functions[key].variance
+		graphs.append(p.Dot(graph_type = 'digraph'))
+		name = n.find('Name').text
+		if (time == 0):
+			root = p.Node(name, label = name + "()" + "\nnot executed")
+		else:
+			root = p.Node(name, label = name + "()" + "\n execution time: %f" % time + "\nvariance: " + str(variance))
+		graphs[count].add_node(root)
+		find_nesting(n, graphs[count], root, functions[key].pragmas)
+		count += 1
+
+	return graphs
+
+def create_complete_graph(visual_flow_graphs, profile_xml):
+	func_graph = p.Dot(graph_type = 'digraph', compound = 'true')
+	clusters = []
+
+	i = 0
+
+	for func in visual_flow_graphs:
+		clusters.append(p.Cluster(str(i)))
+		for node in func.get_nodes():
+			clusters[i].add_node(node)
+		for edge in func.get_edge_list():
+			clusters[i].add_edge(edge)
+		func_graph.add_subgraph(clusters[i])
+		i +=  1
+
+	functions_callers = pro.get_table(profile_xml)
+
+	for func in visual_flow_graphs:
+		root = func.get_nodes()[0].obj_dict['attributes']['root']
+		if len(functions_callers[root]) > 0 :
+			for caller in functions_callers[root]:
+				func_graph.add_edge(p.Edge(caller, root))
+
+	return func_graph
+
+def dump_graphs(flow_graphs):
+	root = ET.Element('File')
+	name = ET.SubElement(root, 'Name')
+	name.text = flow_graphs[0].file_name
+	graph_type = ET.SubElement(root, 'GraphType')
+	graph_type.text = "flow"
+	for func in flow_graphs:
+		function = ET.SubElement(root, 'Function')
+		function.attrib['id'] = str(func.start_line) + str(func.end_line)
+		func_name = ET.SubElement(function, 'Name')
+		func_name.text = func.type
+		returnType = ET.SubElement(function, 'ReturnType')
+		returnType.text = func.returnType
+		if len(func.arguments) != 0:
+			parameters = ET.SubElement(function, 'Parameters')
+			for par in func.arguments:
+				parameter = ET.SubElement( parameters, 'Parameter')
+				type_ = ET.SubElement( parameter, 'Type')
+				type_.text = par[0]
+				name_ = ET.SubElement( parameter, 'Name')
+				name_.text = par[1]
+		line = ET.SubElement(function, 'Line')
+		line.text = func.start_line 
+		time = ET.SubElement(function, 'Time')
+		time.text = str(func.time)
+		variance = ET.SubElement(function, 'Variance')
+		variance.text = str(func.variance)
+		func.xml_parent = None
+		if ( func.callerid != None ):
+			callerids = ET.SubElement(function, 'Callerids')
+			for id_ in func.callerid:
+				callerid = ET.SubElement(callerids, 'Callerid')
+				callerid.text = id_
+		if len(func.children) != 0:
+			pragma_list = []
+			edge_list = []
+			pragmas = ET.SubElement(function, 'Nodes')
+			dump_pragmas(func, pragmas, pragma_list)
+			edges = ET.SubElement(function, 'Edges')
+			dump_edges(func, edges, edge_list)
+
+	tree = ET.ElementTree(root)
+	indent(tree.getroot())
+	tree.write('flow.xml')
+
+def dump_pragmas(pragma_node, pragmas_element, pragma_list):
+	for pragma in pragma_node.children:
+		if str(pragma.start_line) + str(pragma.end_line) not in pragma_list:
+			pragma_list.append(str(pragma.start_line) + str(pragma.end_line))
+			pragma_ = ET.SubElement(pragmas_element, 'Pragma')
+			pragma_.attrib['id'] = str(pragma.start_line) + str(pragma.end_line)
+			name = ET.SubElement(pragma_, 'Name')
+			if not "_end" in pragma.type:
+				name.text = pragma.type
+			else:
+				name.text = "BARRIER"
+			if(len(pragma.options) != 0):
+				options = ET.SubElement(pragma_, 'Options')
+				for op in pragma.options:
+					option = ET.SubElement(options, 'Option')
+					op_name = ET.SubElement(option, 'Name')
+					op_name.text = op[0]
+					for par in op[1]:
+						op_parameter = ET.SubElement(option, 'Parameter')
+						op_var = ET.SubElement(op_parameter, 'Var')
+						op_var.text = par[1]
+						op_type = ET.SubElement(op_parameter, 'Type')
+						op_type.text = par[0]
+			position = ET.SubElement(pragma_, 'Position')
+			start = ET.SubElement(position, 'StartLine')
+			start.text = pragma.start_line
+			if(name.text != "BARRIER"):
+				end = ET.SubElement(position, 'EndLine')
+				end.text = pragma.end_line
+			if (pragma.callerid != None ):
+				callerids = ET.SubElement(pragma_, 'Callerids')
+				for id_ in pragma.callerid:
+					callerid = ET.SubElement(callerids, 'Callerid')
+					callerid.text = id_
+			if(pragma.time != 0):
+				time = ET.SubElement(pragma_, 'Time')
+				time.text = str(pragma.time)
+			if(pragma.variance != None):
+				variance = ET.SubElement(pragma_, 'Variance')
+				variance.text = str(pragma.variance)
+
+		dump_pragmas(pragma, pragmas_element, pragma_list)
+
+def dump_edges(pragma_node, edges_element, pragma_list):
+	for pragma in pragma_node.children:
+		if pragma_node.start_line + pragma.start_line not in pragma_list:
+			pragma_list.append(pragma_node.start_line+pragma.start_line)
+			edge = ET.SubElement(edges_element, 'Edge')
+			source = ET.SubElement(edge, 'Source')
+			source.text = str(pragma_node.start_line) + str(pragma_node.end_line)
+			dest = ET.SubElement(edge, 'Dest')
+			dest.text = str(pragma.start_line) + str(pragma.end_line)
+		dump_edges(pragma,edges_element, pragma_list)
+
+def find_node(node, flow_graphs):
+	for function in flow_graphs:
+		tmp_node = find_sub_node(node, function) 
+		if tmp_node != None :
+			return tmp_node
+
+def find_node2(key_start, key_parent, flow_graphs):
+	tmp_node = find_sub_node2(key_start, key_parent, flow_graphs) 
+	if tmp_node != None :
+		return tmp_node
+
+def find_sub_node2(key_start, key_parent, function):
+	if (function.start_line) == key_start and ('BARRIER' not in function.type):
+			return function
+	for child in function.children:
+		if (child.start_line) == key_start and ('BARRIER' not in child.type) and child.parent[0].start_line == key_parent:
+			return child
+		else:
+			tmp_node = find_sub_node2(key_start, key_parent, child)
+		if tmp_node != None:
+			return tmp_node
+	return None
+
+def find_sub_node(node, function):
+	if (function.start_line) == node and ('BARRIER' not in function.type):
+			return function
+	for child in function.children:
+		if (child.start_line) == node and ('BARRIER' not in child.type):
+			return child
+		else:
+			tmp_node = find_sub_node(node, child)
+		if tmp_node != None:
+			return tmp_node
+	return None
+
+class Caller():
+	def __init__(self, original_caller, used_caller):
+		self.original_caller = original_caller
+		self.used_caller = used_caller
+		self.old_children = []
+
+#adding to the main graph all the function which are called taking care of multiple connections between pragma and caller
+def explode_graph(flow_graphs):
+	setted_callers = {}
+	for function in flow_graphs:
+		count = 0
+		caller_list = function.callerid
+		if caller_list != None:
+			for caller in caller_list:
+				function_copy = copy.deepcopy(function)
+				count += 1
+				caller_node = find_node(caller, flow_graphs)
+				if caller_node.start_line not in setted_callers:
+					setted_callers[caller_node.start_line] = Caller(copy.copy(caller_node), caller_node)
+					function_copy.parent.append(caller_node)
+					children_list = []
+					for child in caller_node.children:
+						children_list.append(child)
+						child.parent.remove(caller_node)
+						setted_callers[caller_node.start_line].old_children.append(child)
+					caller_node.children = []
+					caller_node.children.append(function_copy)
+					last_node = sched.get_last(function_copy)
+					last_node.children = children_list
+					for child in children_list:
+						child.parent.append(last_node)
+				else:
+					children_list = []
+					for child in setted_callers[caller_node.start_line].old_children:
+						children_list.append(child)
+					function_copy.parent.append(setted_callers[caller_node.start_line].used_caller)
+					setted_callers[caller_node.start_line].used_caller.children.append(function_copy)
+					last_node = sched.get_last(function_copy)
+					last_node.children = children_list
+					for child in children_list:
+						child.parent.append(last_node)
+
+
+def get_parameter(parameter):
+	if parameter.find('Type') != None:
+		type_ = parameter.find('Type').text
+	else:
+		type_ = 'None'
+	return (type_, parameter.find('Var').text)
+
+def create_map(optimal_flow):
+	for_map = {}
+	for flow in optimal_flow:
+		for task in flow.tasks:
+			if "splitted" in task.type:
+				l = re.findall(r'\d+',task.type)
+				id = str(l[0]) + "_" + str(l[2])
+				if id in for_map:
+					for_map[id].count += 1
+					for_map[id].id.append(task.id)
+				else:
+					for_map[id] = Task(1, task.id)
+	return for_map
+
+def add_new_tasks(optimal_flow, main_flow):
+	for_map = create_map(optimal_flow)
+	for key in for_map:
+		l = re.findall(r'\d+',key)
+		node_to_replace = find_node2(l[0], l[1], main_flow)
+		nodes_to_add = []
+
+		for i in range(for_map[key].count):
+			nodes_to_add.append(For_Node("splitted_" + node_to_replace.start_line + "." + str(i), node_to_replace.start_line, node_to_replace.init_type, node_to_replace.init_var, node_to_replace.init_value, node_to_replace.init_cond, node_to_replace.init_cond_value, node_to_replace.init_increment, node_to_replace.init_increment_value, node_to_replace.time, node_to_replace.variance, math.floor(float(node_to_replace.mean_loops) / (i + 1))))
+
+		for parent in node_to_replace.parent:
+			parent.children.remove(node_to_replace)
+			for n in nodes_to_add:
+				parent.add(n)
+				n.id = for_map[key].id.pop(0)
+				n.color = 'white'
+				n.from_type = node_to_replace.type
+
+		for child in node_to_replace.children:
+			child.parent.remove(node_to_replace)
+			for n in nodes_to_add:
+				n.add(child) 
+
+
+def add_flow_id(optimal_flow, task_list):
+	id_map = {}
+	for flow in optimal_flow:
+		for task in flow.tasks:
+			if "splitted" not in task.type:
+				if task.start_line not in id_map:
+					id_map[task.start_line] = task.id
+				else:
+					id_map[task.start_line + str(1)] = task.id
+	for task in task_list:
+		if "splitted" not in task.type:
+			if task.start_line in id_map:
+				task.id = id_map[task.start_line]
+				id_map.pop(task.start_line, None)
+			else:
+				task.id = id_map[task.start_line + str(1)]
+
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=profiler.py]
+from __future__ import with_statement
+import os
+import pargraph as par
+import xml.etree.cElementTree as ET
+import numpy 
+import re
+
+def profileCreator(cycle, executable):
+	pragma_times = {}
+	function_times = {}
+	j = 0
+	param_string = ''
+
+	if os.path.exists("./parameters.txt"):
+		with open("./parameters.txt","r") as f:
+			parameters = f.readlines()
+		for s in parameters:
+			param_string +=  s.strip()
+
+	for i in range(cycle):
+		print "profiling iteration: " + str((j + 1))
+		os.system("./" + executable + " " + param_string + " >/dev/null")	
+		os.system("mv log_file.xml " + "./logfile%s.xml" % j)
+		root = ET.ElementTree(file = "./logfile%s.xml" % j).getroot()
+
+		for pragma in root.iter('Pragma'):
+			key = pragma.attrib['fid'] + pragma.attrib['pid']
+			if (key not in pragma_times):
+				pragma_times[key] = par.Time_Node(int(pragma.attrib['fid']), int(pragma.attrib['pid']))
+			if ('callerid' in pragma.attrib):
+				if pragma.attrib['callerid'] not in pragma_times[key].caller_list:
+					pragma_times[key].caller_list.append(pragma.attrib['callerid'])
+			if ('loops' in pragma.attrib):
+				pragma_times[key].loops.append(int(pragma.attrib['loops']))
+			if ('time' in pragma.attrib):
+				pragma_times[key].time = pragma.attrib['time']
+			if ('childrenTime' in pragma.attrib):
+				pragma_times[key].children_time.append(float(pragma.attrib['childrenTime']))
+			pragma_times[key].times.append(float(pragma.attrib['elapsedTime']))
+
+		for func in root.iter('Function'):
+			key = func.attrib['fid']
+			if (key in function_times):
+				function_times[key].times.append(float(func.attrib['elapsedTime']))
+			else:
+				function_times[key] = par.Time_Node(int(func.attrib['fid']), 0)
+				function_times[key].times.append(float(func.attrib['elapsedTime']))
+			if ('callerid' in func.attrib):
+				if int(func.attrib['callerid']) not in function_times[key].caller_list:
+					function_times[key].caller_list.append(int(func.attrib['callerid']))
+			if ('time' in func.attrib):
+				function_times[key].time = func.attrib['time']
+			if ('childrenTime' in func.attrib):
+				function_times[key].children_time.append(float(func.attrib['childrenTime']))
+
+		j += 1
+
+	num_cores = ET.ElementTree(file = "logfile0.xml").getroot().find('Hardware').attrib['NumberofCores']
+	tot_memory = ET.ElementTree(file = "logfile0.xml").getroot().find('Hardware').attrib['MemorySize']
+
+	root = ET.Element('Log_file')
+	h = ET.SubElement(root, 'Hardware')
+	h1 = ET.SubElement(h, 'NumberofCores')
+	h2 = ET.SubElement(h, 'MemorySize')
+	h1.text = num_cores
+	h2.text = tot_memory
+
+	for key in function_times:
+		s = ET.SubElement(root, 'Function')
+		line = ET.SubElement(s, 'FunctionLine')
+		time = ET.SubElement(s, 'Time')
+		var = ET.SubElement(s, 'Variance')
+		if (len(function_times[key].caller_list) != 0 ):
+			callerid = ET.SubElement(s, 'CallerId')
+			callerid.text = str(function_times[key].caller_list)
+		if (len(function_times[key].children_time) != 0):
+			children_time = ET.SubElement(s, 'ChildrenTime')
+			children_time.text = str(numpy.mean(function_times[key].children_time))
+		time.text = str(numpy.mean(function_times[key].times))
+		line.text = str(function_times[key].func_line)
+		var.text = str(numpy.std(function_times[key].times))
+
+	for key in pragma_times:
+		s = ET.SubElement(root, 'Pragma')
+		f_line = ET.SubElement(s, 'FunctionLine')
+		p_line = ET.SubElement(s, 'PragmaLine')
+		time = ET.SubElement(s, 'Time')
+		var = ET.SubElement(s, 'Variance')
+		if (len(pragma_times[key].loops) != 0):
+			loops = ET.SubElement(s, 'Loops')
+			loops.text = str(numpy.mean(pragma_times[key].loops))
+		if (len(pragma_times[key].caller_list) != 0 ):
+			callerid = ET.SubElement(s, 'CallerId')
+			callerid.text = str(pragma_times[key].caller_list)
+		if (len(pragma_times[key].children_time) != 0):
+			children_time = ET.SubElement(s, 'ChildrenTime')
+			children_time.text = str(numpy.mean(pragma_times[key].children_time))
+		time.text = str(numpy.mean(pragma_times[key].times))
+		f_line.text = str(pragma_times[key].func_line)
+		p_line.text = str(pragma_times[key].pragma_line)
+		var.text = str(numpy.std(pragma_times[key].times))
+
+	tree = ET.ElementTree(root)
+	par.indent(tree.getroot())
+	tree.write(executable + "_profile.xml")
+
+	return executable + "_profile.xml"
+
+def add_profile_xml(profile_xml, xml_tree):
+	functions = getProfilesMap(profile_xml)
+	tree = ET.ElementTree(file = xml_tree) 
+	root = tree.getroot()
+	type_ = ET.SubElement(root, 'GraphType')
+	type_.text = 'Code'
+
+	for func in root.findall('Function'):
+		key = func.find('Line').text
+		func_time =  ET.SubElement(func, 'Time')
+		func_time.text = str(functions[key].time)
+		func_variance = ET.SubElement(func, 'Variance')
+		func_variance.text = str(functions[key].variance)
+		if len(functions[key].callerid) > 0:
+			func_caller_ids = ET.SubElement(func, 'Callerids')
+			tmp_list = set(functions[key].callerid)
+			for id in tmp_list:
+				func_caller_id = ET.SubElement(func_caller_ids,'Callerid')
+				func_caller_id.text = id
+		for pragma in func.iter('Pragma'):
+			pragma_key = pragma.find('Position/StartLine').text
+			if pragma_key in functions[key].pragmas:
+				pragma_time = ET.SubElement(pragma, 'Time')
+				pragma_time.text = functions[key].pragmas[pragma_key][0]
+				pragma_variance = ET.SubElement(pragma, 'Variance')
+				pragma_variance.text = functions[key].pragmas[pragma_key][1]
+				if (functions[key].pragmas[pragma_key][2] != 0):
+					pragma_loops = ET.SubElement(pragma, 'Loops')
+					pragma_loops.text = functions[key].pragmas[pragma_key][2]	
+				if 	(functions[key].pragmas[pragma_key][3] != None):
+					pragma_callerid = ET.SubElement(pragma, 'Callerid')
+					pragma_callerid.text = functions[key].pragmas[pragma_key][3].replace('[','').replace(']','').replace('\'','')
+
+	par.indent(tree.getroot())			
+	tree.write('code.xml')
+
+def get_table(profile_xml):
+	tree = ET.ElementTree(file = profile_xml) 
+	root = tree.getroot()
+	table = {}
+
+	for func in root.iter('Function'):
+		table[func.find('FunctionLine').text] = []
+		if func.find('CallerId') != None:
+			l = re.findall(r'\d+',func.find('CallerId').text)
+			for j in l:
+				table[func.find('FunctionLine').text].append(j)
+
+	return table
+
+def getProfilesMap(profile_xml):
+	profile_graph_root = ET.ElementTree(file = profile_xml).getroot()
+
+	functions = {}
+	l = []
+
+	for func in profile_graph_root.findall('Function'):
+		f = par.Function(func.find('Time').text, func.find('Variance').text, func.find('ChildrenTime').text)
+		f.callerid = []
+		if (func.find('CallerId') != None):
+			l = re.findall(r'\d+',func.find('CallerId').text.replace("[","").replace("]",""))
+			for id_ in l:
+				f.callerid.append(id_)
+		functions[func.find('FunctionLine').text] = f
+
+	for pragma in profile_graph_root.findall('Pragma'):
+		if pragma.find('CallerId') != None:
+			callerid = pragma.find('CallerId').text.replace("[\'","").replace("\']","")
+		else:
+			callerid = None
+		if (pragma.find('Loops') != None):
+			loops = pragma.find('Loops').text
+		else :
+			loops = 0
+		functions[pragma.find('FunctionLine').text].add_pragma( (pragma.find('PragmaLine').text, pragma.find('Time').text, pragma.find('Variance').text, loops, callerid, pragma.find('ChildrenTime').text ))
+
+	return functions
+\end{lstlisting}
+
+\begin{lstlisting}[language=CCC, caption=graphCreator.py]
+import pargraph as par
+import xml.etree.cElementTree as ET
+import math
+import copy
+import time
+import multiprocessing
+
+class Queue():
+	def __init__(self):
+		self.q = multiprocessing.Queue()
+		self.set = False
+
+#returns the optimal flows 
+#if time is to big for the number of possible solutions it does not work.
+
+def get_optimal_flow(flow_list, task_list, level, optimal_flow, NUM_TASKS, MAX_FLOWS, execution_time, q):
+	if time.clock() < execution_time :
+		curopt = get_cost(optimal_flow)
+		cur = get_cost(flow_list)
+		if len(flow_list) < MAX_FLOWS and len(task_list) != level and cur <= curopt :
+			task_i = task_list[level]
+			# test integrating the single task in each
+			for flow in flow_list :
+				flow.add_task(task_i)
+				get_optimal_flow(flow_list, task_list, level + 1, optimal_flow, NUM_TASKS, MAX_FLOWS, execution_time, q)
+				flow.remove_task(task_i)
+			new_flow = par.Flow()		
+			new_flow.add_task(task_i)
+			flow_list.append(new_flow)
+			get_optimal_flow(flow_list, task_list, level + 1, optimal_flow, NUM_TASKS, MAX_FLOWS, execution_time, q)
+			flow_list.remove(new_flow)
+
+			if 'For' in task_i.type :
+				#checks the possible splittings of the for node
+				for i in range(2, MAX_FLOWS + 1):
+					tmp_task_list = []
+					#splits the for node in j nodes
+					for j in range(0, i):
+						task = par.For_Node("splitted_" + task_i.start_line + "." + str(j) + "_" + task_i.parent[0].start_line, task_i.start_line, task_i.init_type, task_i.init_var, task_i.init_value, task_i.init_cond, task_i.init_cond_value, task_i.init_increment, task_i.init_increment_value, task_i.time, task_i.variance, math.floor(float(task_i.mean_loops) / i))
+						task.in_time = float(task_i.time) / i
+						task_list.append(task)
+						tmp_task_list.append(task)
+					get_optimal_flow(flow_list, task_list, level + 1, optimal_flow, NUM_TASKS + i - 1, MAX_FLOWS, execution_time, q)
+					for tmp_task in tmp_task_list:
+						task_list.remove(tmp_task)		
+		else:
+			if len(task_list) == level and len(flow_list) == MAX_FLOWS and cur <= curopt:
+				if cur < curopt or (get_num_splitted(flow_list) > get_num_splitted(optimal_flow) and get_num_splitted(flow_list) < (MAX_FLOWS * 2)):
+					#print "acutal cost: ", get_cost(flow_list), "optimal cost: ", get_cost(optimal_flow)
+					del optimal_flow[:]
+					id = 0
+					#print "newflowset:"
+					for flow in flow_list:
+						for task in flow.tasks:
+							task.id = id
+						id += 1
+						optimal_flow.append(copy.deepcopy(flow))
+					while( not q.q.empty() ):
+						q.q.get()
+					q.q.put(optimal_flow)
+
+def get_optimal_flow_single(flow_list, task_list, level, optimal_flow, NUM_TASKS, MAX_FLOWS, execution_time):
+	#print "time: ", time.clock() - execution_time
+	if time.clock() < execution_time :
+		curopt = get_cost(optimal_flow)
+		cur = get_cost(flow_list)
+		if len(flow_list) < MAX_FLOWS and len(task_list) != level and cur <= curopt :
+			task_i = task_list[level]
+			# test integrating the single task in each
+			for flow in flow_list :
+				flow.add_task(task_i)
+				get_optimal_flow_single(flow_list, task_list, level + 1, optimal_flow, NUM_TASKS, MAX_FLOWS, execution_time)
+				flow.remove_task(task_i)
+			new_flow = par.Flow()		
+			new_flow.add_task(task_i)
+			flow_list.append(new_flow)
+			get_optimal_flow_single(flow_list, task_list, level + 1, optimal_flow, NUM_TASKS, MAX_FLOWS, execution_time)
+			flow_list.remove(new_flow)
+
+			if 'For' in task_i.type :
+				#checks the possible splittings of the for node
+				for i in range(2, MAX_FLOWS + 1):
+					tmp_task_list = []
+					#splits the for node in j nodes
+					for j in range(0, i):
+						task = par.For_Node("splitted_" + task_i.start_line + "." + str(j) + "_" + task_i.parent[0].start_line, task_i.start_line, task_i.init_type, task_i.init_var, task_i.init_value, task_i.init_cond, task_i.init_cond_value, task_i.init_increment, task_i.init_increment_value, task_i.time, task_i.variance, math.floor(float(task_i.mean_loops) / i))
+						task.in_time = float(task_i.time) / i
+						task_list.append(task)
+						tmp_task_list.append(task)
+					get_optimal_flow_single(flow_list, task_list, level + 1, optimal_flow, NUM_TASKS + i - 1, MAX_FLOWS, execution_time)
+					for tmp_task in tmp_task_list:
+						task_list.remove(tmp_task)		
+		else:
+			if len(task_list) == level and len(flow_list) == MAX_FLOWS and cur <= curopt:
+				if cur < curopt and get_num_splitted(flow_list) <  MAX_FLOWS/2 or (get_num_splitted(flow_list) > get_num_splitted(optimal_flow) and get_num_splitted(flow_list) <  MAX_FLOWS/2) :
+					#print "acutal cost: ", get_cost(flow_list), "optimal cost: ", get_cost(optimal_flow)
+					del optimal_flow[:]
+					id = 0
+					#print "newflowset:"
+					for flow in flow_list:
+						for task in flow.tasks:
+							task.id = id
+						id += 1
+						optimal_flow.append(copy.deepcopy(flow))
+
+def get_num_splitted(flow_list):
+	num = 0
+	for flow in flow_list:
+		for task in flow.tasks:
+			if 'splitted' in task.type:
+				num += 1
+	return num
+
+#generator for the tasks of the graph
+def generate_task(node):
+	if node.color == 'white':
+		node.color = 'black'
+		yield node
+		for n in node.children:
+			for node in generate_task(n):
+				yield node
+
+def generate_list(l, node):
+	if node.color == 'white':
+		node.color = 'black'
+		l.append(node)
+		for n in node.children:
+			generate_list(l, n)
+
+#returns the number or physical cores
+def get_core_num(profile):
+	root = ET.ElementTree(file = profile).getroot()
+	return int(root.find('Hardware/NumberofCores').text)
+
+#sets the color of each node to white
+def make_white(node):
+	if node.color == 'black':
+		node.color = 'white'
+	for child in node.children:
+		make_white(child)
+
+#returns the graph which contains the 'main' function
+def get_main(exp_flows):
+	for i in range(len(exp_flows)):
+		if exp_flows[i].type == 'main':
+			return exp_flows[i]
+
+#returns the last node of the input graph
+def get_last(node):
+	if not node.children:
+		return node	
+	else:
+		 return get_last(node.children[0])
+
+#returns the children with the least deadline - computation_time 
+def get_min(node):
+	minimum = float("inf")
+	found = False
+	for child in node.children:
+		if child.d == None:
+			found = True
+	if found == False:
+		#print "setting: ",child.type,"@",child.start_line
+		for child in node.children:
+			min_tmp = child.d - float(child.in_time)
+			if min_tmp < minimum:
+				minimum = min_tmp
+		return minimum
+
+
+#sets the deadline for each task
+def chetto_deadlines(node):
+	if node.parent :
+		for p in node.parent:
+			p.d = get_min(p)
+		for p in node.parent:
+			chetto_deadlines(p)
+
+#applys the chetto algorithm to obtain the deadline and arrival time for each task
+def chetto(flow_graph, deadline, optimal_flow):
+	node = get_last(flow_graph)
+	node.d = deadline
+	chetto_deadlines(node)
+	flow_graph.arrival = 0
+	chetto_arrival(flow_graph, optimal_flow)
+
+#gets the cost of the worst flow
+def get_cost(flow_list):
+	if len(flow_list) == 0:
+		return float("inf")
+	else:
+		return max([flow.time for flow in flow_list])
+
+def chetto_arrival(node, optimal_flow):
+	if node.children :
+		for child in node.children:
+			if child.arrival == None and all_set(child) == True:
+				(a, d) = get_max(child, optimal_flow)
+				child.arrival = max(a, d)
+			chetto_arrival(child, optimal_flow)
+
+
+def get_max(node, optimal_flow):
+	maximum_a = 0
+	maximum_d = 0
+	for p in node.parent:
+		if p.arrival > maximum_a and p.id == node.id:
+			maximum_a = p.arrival
+		if p.d > maximum_d and p.id != node.id:
+			maximum_d = p.d
+	return (maximum_a, maximum_d)
+
+#checks if all the parent nodes have the arrival times set
+def all_set(node):
+	found = True
+	for p in node.parent:
+		if p.arrival == None:
+			found = False
+	return found
+
+def get_id(node, optimal_flow):
+	for flow in optimal_flow:
+		for task in flow.tasks:
+			if node.type == task.type:
+				return flow.id
+
+def print_schedule(node):
+	if node.color == 'white':
+		node.color = 'black'
+		print node.type," @ ", node.start_line
+		print "\t start: ", node.arrival
+		print "\t deadline: ", node.d
+		print "\t flow: ", node.id
+	for n in node.children:
+		print_schedule(n)
+
+def create_schedule(graph, num_cores):
+	mapped = []
+	schedule = ET.Element('Schedule')
+	cores = ET.SubElement(schedule, 'Cores')
+	cores.text = str(num_cores)
+	make_white(graph)
+	task_list = generate_task(graph)
+	tree = ET.ElementTree(schedule)
+	for task in task_list:
+		if 'splitted' in task.type:
+			serialize_splitted(task, schedule, mapped)
+		elif 'BARRIER' not in task.type:
+			pragma = ET.SubElement(schedule, 'Pragma')
+			id = ET.SubElement(pragma, 'id')
+			id.text = str(task.start_line)
+			caller_id = ET.SubElement(pragma, 'Caller_id')
+			if(len(task.parent) > 0):
+				caller_id.text = str(task.parent[0].start_line)
+			else:
+				caller_id.text = str(0)
+			pragma_type = ET.SubElement(pragma, 'Type')
+			pragma_type.text = str(task.type)
+			threads = ET.SubElement(pragma, 'Threads')
+			thread = ET.SubElement(threads, 'Thread')
+			thread.text = str(task.id)
+			start = ET.SubElement(pragma, 'Start_time')
+			start.text = str(task.arrival)
+			end = ET.SubElement(pragma, 'Deadline')
+			end.text = str(task.d)
+			created = False
+			if 'BARRIER' not in task.children[0].type :
+				l = []
+				if 'Parallel' in task.type:
+					barrier = ET.SubElement(pragma, 'Barrier')
+					created = True
+					first = ET.SubElement(barrier, 'id')
+					first.text = str(task.start_line)
+				if not ('OMPParallelForDirective' in task.type and 'Parallel' in task.children[0].type) and not isinstance(task.children[0], par.Fx_Node):
+					if created == False:
+						barrier = ET.SubElement(pragma, 'Barrier')
+						created = True
+					for c in task.children:
+						if c.start_line not in l:
+							tmp_id = ET.SubElement(barrier, 'id')
+							tmp_id.text = str(c.start_line)
+							l.append(c.start_line)
+			elif ('OMPParallelForDirective' in task.type and 'BARRIER' in task.children[0].type):
+				if created == False:
+						barrier = ET.SubElement(pragma, 'Barrier')
+						created = True
+				first = ET.SubElement(barrier, 'id')
+				first.text = str(task.start_line)
+	par.indent(tree.getroot())			
+	tree.write('schedule.xml')
+
+def serialize_splitted(task, schedule, mapped):
+	if task.start_line not in mapped:
+		pragma = ET.SubElement(schedule, 'Pragma')
+		id = ET.SubElement(pragma, 'id')
+		id.text = str(task.start_line)
+		caller_id = ET.SubElement(pragma, 'Caller_id')
+		if(len(task.parent) > 0):
+			caller_id.text = str(task.parent[0].start_line)
+		else:
+			caller_id.text = str(0)
+		pragma_type = ET.SubElement(pragma, 'Type')
+		pragma_type.text = str(task.from_type)
+		threads = ET.SubElement(pragma, 'Threads')
+		thread = ET.SubElement(threads, 'Thread')
+		thread.text = str(task.id)
+		start = ET.SubElement(pragma, 'Start_time')
+		start.text = str(task.arrival)
+		end = ET.SubElement(pragma, 'Deadline')
+		end.text = str(task.d)
+		mapped.append(task.start_line)
+		if 'BARRIER' not in task.children[0].type :
+			l = []
+			barrier = ET.SubElement(pragma, 'Barrier')
+			if 'Parallel' in task.from_type:
+				first = ET.SubElement(barrier, 'id')
+				first.text = str(task.start_line)
+			if not ('OMPParallelForDirective' in task.from_type and 'Parallel' in task.children[0].type):
+				for c in task.children:
+					if c.start_line not in l:
+						tmp_id = ET.SubElement(barrier, 'id')
+						tmp_id.text = str(c.start_line)
+						l.append(c.start_line)
+		elif ('OMPParallelForDirective' in task.from_type and 'BARRIER' in task.children[0].type):
+			barrier = ET.SubElement(pragma, 'Barrier')
+			first = ET.SubElement(barrier, 'id')
+			first.text = str(task.start_line)
+	else:
+		for p in schedule.findall("Pragma"):
+			if p.find('id').text == task.start_line:
+				threads_ = p.find('Threads')
+				thread = ET.SubElement(threads_, 'Thread')
+				thread.text = str(task.id)
+
+def check_schedule(main_flow):
+	make_white(main_flow)
+	gen = generate_task(main_flow)
+	for node in gen:
+		if node.d < 0:
+			return False
+	return True
+\end{lstlisting}
+
+\end{document}
