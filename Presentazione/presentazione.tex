@@ -286,6 +286,88 @@ The framework takes as input a C++ code annotated with OpenMP.
 
 
 
+\begin{frame}{\hskip 0.3cm Graphs}
+
+
+The framework creates three types of graphs to visualize and work on the extracted data 
+
+
+\begin{itemize}		
+
+\item Code Graph : represents the nested structure of the pragmas in the source code.
+
+\item Flow Graph : represents the parallel execution flow and the synchronization barriers.
+
+\item Agumented Flow Graph : enhances the Flow Graph with the profiling informations and the function calls.
+
+
+\end{itemize}			
+
+The graphs are stored using Python objects and visualized using Pydot.
+
+
+
+\end{frame}
+
+
+
+
+
+
+
+
+\begin{frame}{\hskip 0.3cm OpenMP }
+
+Multiple threads of execution perform tasks defined by directives.
+
+\begin{itemize}
+\item Each directive applies to  a block of C++ code embedded in a scope.
+
+\item Allows nested parallelism though nested directives.
+
+\item Clauses allow variables management.
+\end{itemize}
+
+\begin{block}
+
+$\#$pragma omp directive-name [clause[ [,] clause]...] new-line
+
+\end{block}
+
+Choosen subset for the framwork:
+
+\begin{itemize}
+
+\item Control directives : parallel, sections, single.
+
+\item Working directives : task, section, for.
+
+\end{itemize}
+
+\end{frame}
+
+
+
+
+
+
+
+
+
+
+
+
+\begin{frame}{\hskip 0.3cm OpenMP}
+
+\begin{figure}
+\centering
+\includegraphics[scale = 0.45]{ompstructure}
+
+\end{figure}
+
+\end{frame}
+
+
 \begin{frame}[fragile]{\hskip 0.3cm Simple Example}
 
 \begin{columns}
@@ -353,68 +435,6 @@ int main(int argc, char* argv[]) {
 
 
 
-\begin{frame}{\hskip 0.3cm OpenMP }
-
-Multiple threads of execution perform tasks defined by directives.
-
-\begin{itemize}
-\item Each directive applies to  a block of C++ code embedded in a scope.
-
-\item Allows nested parallelism though nested directives.
-
-\item Clauses allow variables management.
-\end{itemize}
-
-\begin{block}
-
-$\#$pragma omp directive-name [clause[ [,] clause]...] new-line
-
-\end{block}
-
-Choosen subset for the framwork:
-
-\begin{itemize}
-
-\item Control directives : parallel, sections, single.
-
-\item Working directives : task, section, for.
-
-\end{itemize}
-
-\end{frame}
-
-
-
-
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm OpenMP}
-
-\begin{figure}
-\centering
-\includegraphics[scale = 0.45]{ompstructure}
-
-\end{figure}
-
-\end{frame}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 \begin{frame}{\hskip 0.3cm Clang}
 
 Clang and OpenMP:
@@ -430,6 +450,12 @@ The strength of Clang lies in its implementation of the Abstract Syntax Tree (AS
 
 \end{itemize}
 \end{frame}
+
+
+
+
+
+
 
 
 
@@ -464,6 +490,9 @@ Clang supports the insertion of custom code through the Rewriter class.
 \end{itemize}
 
 \end{frame}
+
+
+
 
 
 
@@ -558,7 +587,7 @@ TranslationUnitDecl
 
 \item Code is instrumented with calls to a custom run-time support.
 
-\item Execution time, children execution time, caller identifier, for loop counter.
+\item Extracted information: execution time, children execution time, caller identifier, for loop counter.
 
 \item Output is saved in an XML file.
 
@@ -595,43 +624,104 @@ if( ProfileTracker profile_tracker = ProfileTrackParams(12, 25))
 
 
 
-\begin{frame}{\hskip 0.3cm Graphs}
+\begin{frame}{\hskip 0.3cm Profile}
 
 \begin{columns}
 
 \begin{column}{5cm}
-
 \begin{itemize}
 
-\item Pragmas are extracted from the source file and saved in an XML file.
+\item The profiled code is executed $N$ times and statistics are obtained. 
 
-\item Profiler is executed $N$ times and statistics are obtained.
+\item It is possible to use different arguments for the execution.
 
-\end{itemize}
-
-Using these informations two pragma graphs are created.
-
-\begin{itemize}
-
-\item Flow Graphs: illustrates the parallel dependencies between tasks.
-
-\item Code Graph: illustrates the pragma nesting.
+\item An edge is added for each function call that contains pragmas.
 
 \end{itemize}
-
 \end{column}
 
-\begin{column}{6cm}
-\vskip -2cm
+\begin{column}{7.5cm}
+\vskip -0.5cm
 \begin{figure}
 \centering
-\includegraphics[scale=0.21]{call_graph.png}
+\includegraphics[scale=0.22]{call_graph.png}
 
 \end{figure}
 \end{column}
 
 \end{columns}
 
+Possible evolution: probabilistic analysis of the function calls and execution times.
+
+
+\end{frame}
+
+
+
+
+
+
+
+
+\begin{frame}{\hskip 0.3cm Scheduler }
+
+The scheduler takes as input the Agumented Flow Graph and the program's deadline.
+
+\begin{itemize}
+
+\item Since the problem is $NP$-complete, all possible schedules have to be checked.
+
+\item It is possible to set a fixed amount of computation time.
+
+\item A parallel version of the scheduler has been developed which achieves better results in a fixed amount of time.
+
+\end{itemize}
+
+The final schedule is saved as XML file which specifies for each pragma the thread identifier.
+
+\end{frame}
+
+
+
+
+
+
+
+\begin{frame}{\hskip 0.3cm Scheduler - Algorithm}
+\vskip -0.9cm
+\begin{columns}
+
+\begin{column}{6cm}
+
+The scheduler assigns each task to a flow using a search tree. Each flow will be allocated to a different thread.
+
+\end{column}
+
+\begin{column}{4.5cm}
+
+\begin{figure}
+\centering
+\includegraphics[scale=0.37]{search_tree.png}
+\end{figure}
+\end{column}
+
+
+\end{columns}
+
+\begin{itemize}
+
+\item All tasks are stored in an unordered list.
+
+\item The scheduler extracts one task at a time adding it to the current flows and to a new flow.
+
+\item The algorithm splits each pragma for node.
+
+\item The scheduler recurs on each flow pruning it as soon as possible.
+
+\item When a leaf is reached, the algorithm checks if the current solution is better then the previous one.
+
+\end{itemize}
+
 \end{frame}
 
 
@@ -645,8 +735,54 @@ Using these informations two pragma graphs are created.
 
 
 
-\begin{frame}{\hskip 0.3cm Scheduler}
+\begin{frame}{\hskip 0.3cm Scheduler - Feasibility}
 
+The produced schedule does not account for precedence relations. A modified version of Chetto\&Chetto has been used to check the feasibility.
+
+\begin{itemize}
+
+\item All deadlines are set for each task starting from the last one.
+
+\item All arrival times are set for each task starting from the first and accounting for precedence relations.
+
+\item If all deadline are positive and each arrival time is less then the corresponding deadline the schedule is produced.
+
+\end{itemize}
+
+
+
+\end{frame}
+
+
+
+
+
+
+
+
+
+
+
+
+
+\begin{frame}{\hskip 0.3cm Final Execution - Instrumentation}
+
+Each pragma block is transformed in a custom task.
+
+
+\begin{itemize}
+
+\item Each pragma code block is embedded in a function call.
+
+\item The function is member of a class defined inside the scope of the pragma block.
+
+\item All the variables used in the pragma block, but declared outside are passed to the class's constructor.
+
+\item The nested pragma structure is not changed.
+
+\item Each for is rewritten in order to allow it to be splitted.
+
+\end{itemize}
 
 
 
@@ -665,7 +801,64 @@ Using these informations two pragma graphs are created.
 
 
 
-\begin{frame}{\hskip 0.3cm Intrumentation for profiling - Annotated example}
+
+\begin{frame}[fragile]{\hskip 0.3cm Final Execution - Instrumentation Example}
+
+\begin{lstlisting}[language=CCC]
+ //#pragma omp section
+{
+    class Nested : public NestedBase {
+    public: 
+        virtual shared_ptr<NestedBase> clone() const { 
+          return make_shared<Nested>(*this); 
+        } 
+        Nested(int pragma_id, int & bar) : 
+            NestedBase(pragma_id), bar_(bar) {}
+        int & bar_;
+            
+        void fx(int & bar){   
+            //do stuff (bar)
+            work(bar);
+            launch_todo_job(); 
+        }
+        void callme() {
+            fx(bar_);
+        }
+    };
+    shared_ptr<NestedBase> nested_b = make_shared<Nested>(19, bar);                             
+    if(ThreadPool::getInstance()->call(nested_b)) 
+        todo_job_.push(nested_b); 
+}
+\end{lstlisting}
+
+
+\end{frame}
+
+
+
+
+
+
+
+
+\begin{frame}{\hskip 0.3cm Final Execution - Run-time }
+
+The run-time parses the generated XML schedule. 
+
+\begin{itemize}
+
+\item Instantiates all the requested threads using the standard thread library.
+
+\item Creates a work queue for each thread.
+
+\item When invoked it receives a task and extracts from the schedule the designated execution thread.
+
+\item The task is enhanced with synchronization variables.
+
+\item The task is pushed in the corresponding working  thread queue.
+
+\end{itemize}
+
 \end{frame}
 
 
@@ -679,49 +872,26 @@ Using these informations two pragma graphs are created.
 
 
 
-\begin{frame}{\hskip 0.3cm Flow graph}
-\end{frame}
+\begin{frame}{\hskip 0.3cm Final Execution - Runt-time}
+
+Each thread behaves as follows
+
+\begin{itemize}
+
+\item An infinite loop is executed polling the its work queue.
+
+\item After work completion all the necessary synchronizations are perfomed before continuing with the next task.
+
+\end{itemize}
+
+\begin{figure}
+\centering
+\includegraphics[scale=0.40]{runtime_execution.pdf}
+\end{figure}
 
 
 
 
-
-
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm Scheduler}
-\end{frame}
-
-
-
-
-
-
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm Scheduler - Search tree}
-\end{frame}
-
-
-
-
-
-
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm Scheduler - Constraints check}
 \end{frame}
 
 
