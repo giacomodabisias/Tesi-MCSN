@@ -1,5 +1,6 @@
 
 \documentclass[xcolor=dvipsnames]{beamer}
+\usepackage{tikz}
 
 \usepackage{latexsym}
 \usepackage{braket}
@@ -92,7 +93,7 @@ A Framework for static allocation of parallel OpenMP code on multi-core platform
   stepnumber=1,                    
   tabsize=2,                       
   title=\lstname,                   
-  basicstyle=\scriptsize,
+  basicstyle=\scriptsize\tiny,
   stringstyle=\color{ocra},
   morestring=[b]",
   identifierstyle=\color{black},
@@ -166,8 +167,38 @@ There is no actual automatic tool which has the advantages of HPC with timing co
 
 
 
+\begin{frame}{\hskip 0.3cm Objectives}
 
-\begin{frame}{\hskip 0.3cm Objectives and Design Choice: OpenMP and Clang}
+The devloped framework has the following characteristics.
+
+\begin{itemize}
+
+\item An easy API to specify the concurrency between real- time tasks and scheduling parameters.
+
+\item A way to visualize task concurrency and code structure as graphs.
+
+\item A scheduling algorithm which supports multicore architectures, adapting to
+the specific platform.
+
+\item A run time support for the program execution which guarantees the scheduling order of tasks and their timing contrains.
+
+\end{itemize}
+
+
+
+\end{frame}
+
+
+
+
+
+
+
+
+
+
+
+\begin{frame}{\hskip 0.3cm Design Choice: OpenMP and Clang}
 
 
 OpenMP 
@@ -193,8 +224,126 @@ Clang
 \item Opensource and supported by several vendors like Google and Apple.
 
 \end{itemize}
+In July 2013 Intel released a patched version of Clang which fully supports the OpenMP 3.3 standard. 
 
 \end{frame}
+
+
+
+
+
+
+
+
+
+
+
+\begin{frame}{\hskip 0.3cm General Design}
+
+The framework takes as input a C++ code annotated with OpenMP.
+
+\begin{itemize}
+
+\item The pragmas are extracted with all relevant informations using Clang and saved as XML .
+
+\item The input code is rewritten to perform profiling .
+
+\item The scheduler tool uses these informations to create a possible schedule.
+
+\item The input code is rewritten to allow execution according to the generated schedule.
+
+\item The code is then executed with a custom run-time support.
+
+\end{itemize}
+
+\end{frame}
+
+
+
+
+
+
+
+
+
+
+
+\begin{frame}{\hskip 0.3cm }
+
+\begin{tikzpicture}[remember picture,overlay]
+            \node[at=(current page.center)] {
+                \includegraphics[scale = 0.25]{framework.pdf}
+            };
+        \end{tikzpicture}
+
+\end{frame}
+
+
+
+
+
+
+
+
+
+\begin{frame}[fragile]{\hskip 0.3cm Simple Example}
+
+\begin{columns}
+
+\begin{column}{5cm}
+\begin{lstlisting}[language=CCC]
+void work(int bar){
+    #pragma omp parallel for
+    for (int i = 0; i < bar; ++i)
+    {
+       //do stuff
+    }  
+};
+int main(int argc, char* argv[]) {
+    int bar;
+    #pragma omp parallel private(bar)
+    {
+        #pragma omp sections
+        {
+            #pragma omp section
+            {   
+                //do stuff (bar)
+                work(bar);
+            }
+            #pragma omp section
+            {
+                //do stuff (bar)
+                work(bar);
+            }
+        }
+    }
+}
+\end{lstlisting}
+
+\end{column}
+
+\begin{column}{6.5cm}
+\vskip -1cm
+\begin{figure}
+
+\includegraphics[scale=0.3]{main.pdf}
+\end{figure}
+\vskip -1.5cm
+\begin{figure}
+\includegraphics[scale=0.3]{work.pdf}
+\end{figure}
+
+\end{column}
+
+\end{columns}
+
+\end{frame}
+
+
+
+
+
+
 
 
 
@@ -269,9 +418,6 @@ Choosen subset for the framwork:
 \begin{frame}{\hskip 0.3cm Clang}
 
 Clang and OpenMP:
-\begin{itemize}
-\item In July 2013 Intel released a patched version of Clang which fully supports the OpenMP 3.3 standard. 
-\end{itemize}
 
 The strength of Clang lies in its implementation of the Abstract Syntax Tree (AST).
 \begin{itemize}
@@ -400,7 +546,42 @@ TranslationUnitDecl
 
 
 
-\begin{frame}{\hskip 0.3cm The framework}
+
+
+
+\begin{frame}[fragile]{\hskip 0.3cm Instrumentation for Profile}
+
+\begin{itemize}
+\item Creation of a custom profiler to time pragma code blocks and functions.  No existing profiling tool allows this operation.
+
+\begin{itemize}
+
+\item Code is instrumented with calls to a custom run-time support.
+
+\item Execution time, children execution time, caller identifier, for loop counter.
+
+\item Output is saved in an XML file.
+
+\end{itemize}
+\end{itemize}
+\begin{lstlisting}[language=CCC]
+...
+//#pragma omp parallel for
+if( ProfileTracker profile_tracker = ProfileTrackParams(3, 5, bar - 0))
+	for (int i = 0; i < bar; ++i)
+	{
+    		//do stuff
+	}
+...
+//#pragma omp section
+if( ProfileTracker profile_tracker = ProfileTrackParams(12, 25))
+{
+    //do stuff (bar)
+    work(bar);
+}
+...
+\end{lstlisting}
+
 \end{frame}
 
 
@@ -414,7 +595,43 @@ TranslationUnitDecl
 
 
 
-\begin{frame}{\hskip 0.3cm General Design}
+\begin{frame}{\hskip 0.3cm Graphs}
+
+\begin{columns}
+
+\begin{column}{5cm}
+
+\begin{itemize}
+
+\item Pragmas are extracted from the source file and saved in an XML file.
+
+\item Profiler is executed $N$ times and statistics are obtained.
+
+\end{itemize}
+
+Using these informations two pragma graphs are created.
+
+\begin{itemize}
+
+\item Flow Graphs: illustrates the parallel dependencies between tasks.
+
+\item Code Graph: illustrates the pragma nesting.
+
+\end{itemize}
+
+\end{column}
+
+\begin{column}{6cm}
+\vskip -2cm
+\begin{figure}
+\centering
+\includegraphics[scale=0.21]{call_graph.png}
+
+\end{figure}
+\end{column}
+
+\end{columns}
+
 \end{frame}
 
 
@@ -428,49 +645,13 @@ TranslationUnitDecl
 
 
 
-\begin{frame}{\hskip 0.3cm Big-graph image}
-\end{frame}
+\begin{frame}{\hskip 0.3cm Scheduler}
 
 
 
 
 
 
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm Simple example}
-\end{frame}
-
-
-
-
-
-
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm Pragma extraction}
-\end{frame}
-
-
-
-
-
-
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm Intrumentation for profiling}
 \end{frame}
 
 
