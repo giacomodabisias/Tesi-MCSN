@@ -307,7 +307,7 @@ The framework creates three types of graphs to visualize and work on the extract
 
 \item Agumented Flow Graph: enhances the Flow Graph with the profiling informations and the function calls.
 
-\item Schedule graph: enhances the Agumented Flow Graph with scheduling informations.
+\item Schedule Graph: enhances the Agumented Flow Graph with scheduling informations.
 
 
 \end{itemize}			
@@ -881,7 +881,7 @@ The run-time parses the generated XML schedule.
 
 
 
-\begin{frame}{\hskip 0.3cm Final Execution - Runt-time}
+\begin{frame}{\hskip 0.3cm Final Execution - Run-time}
 
 Each thread behaves as follows
 
@@ -1109,6 +1109,8 @@ Performances remain consistent changing the video quality.
 
 \begin{frame}{\hskip 0.3cm Results - Mean Service Time}
 
+Mean service time between cores for each video quality, changing the core number.
+
 \begin{center}
 \resizebox{\linewidth}{!}{
 
@@ -1119,25 +1121,25 @@ Performances remain consistent changing the video quality.
   & $mean\ T_s$ & $mean\ T_s$ & $mean\ var$ & $mean\ T_s$ & $mean\ var$ \\
 \cline{2-6}
 \hline
-480p(4) & 750 & 195 & 0.96 & 195 & 0.96 \\
+480p(4) & 0.2823 & 0.2966 & 0.0014 & 0.2919 & 0.0004 \\
 \hline
-720p(4) & 3525 & 921 & 0.96 & 921 & 0.96 \\
+720p(4) & 1.3263 & 1.3955 & 0.0087 & 1.3884 & 0.0009 \\
 \hline
-1080p(4) & 8645 & 2271 & 0.95 & 2270 & 0.95 \\
+1080p(4) & 3.2524 & 3.4399 & 0.0101 & 3.4369 & 0.0075 \\
 \hline 
 \hline
-480p(6) & - & 133 & 0.94 & 134 & 0.93 \\
+480p(6) & - & 0.3038 & 0.0016 & 0.3023 & 0.0006 \\
 \hline
-720p(6) & - & 627 & 0.94 & 629 & 0.93 \\
+720p(6) & - & 1.4241 & 0.0111 & 1.4206 & 0.0064 \\
 \hline
-1080p(6) & - & 1536 & 0.94 & 1539 & 0.94 \\
+1080p(6) & - & 3.4906 & 0.0238 & 3.4983 & 0.0197 \\
 \hline 
 \hline
-480p(12) & - & 98 & 0.64 & 92 & 0.68 \\
+480p(12) & - & 0.4223 & 0.1421 & 0.4148 & 0.0044 \\
 \hline
-720p(12) & - & 427 & 0.69 & 426 & 0.69 \\
+720p(12) & - & 1.9426 & 0.0862 & 1.9228 & 0.1334 \\
 \hline
-1080p(12) & - & 1043 & 0.69 & 1035 & 0.70 \\
+1080p(12) & - & 4.7394 & 0.3956 & 4.6915 & 0.6277 \\
 \hline 
 \end{tabular} }
 \end{center}
@@ -1162,7 +1164,40 @@ Performances remain consistent changing the video quality.
 
 
 
-\begin{frame}{\hskip 0.3cm Results - (Jitter)}
+\begin{frame}{\hskip 0.3cm Results - Jitter}
+
+\begin{columns}
+\begin{column}{6.5cm}
+
+\begin{figure}
+
+\includegraphics[scale=0.13]{soma_480_range_010.png}
+\end{figure}
+
+\vskip -0.5cm
+\begin{figure}
+
+\includegraphics[scale=0.13]{omp_480_range_010.png}
+\end{figure}
+
+\end{column}
+
+\begin{column}{5cm}
+
+\begin{itemize}
+
+\item Time between output of a frame for each thread.
+
+\item Soma self realigning.
+
+\item Omp increasing delay between sx and dx.
+
+\end{itemize}
+
+\end{column}
+
+\end{columns}
+
 \end{frame}
 
 
@@ -1177,6 +1212,21 @@ Performances remain consistent changing the video quality.
 
 
 \begin{frame}{\hskip 0.3cm Results - Comments}
+
+All the results of the framework are comparable with the OpenMP results.
+
+\begin{itemize}
+
+\item Almost same performance.
+
+\item The framework achieves a lower service time variance $\rightarrow$ more predictable.
+
+\item Low overhead.
+
+\end{itemize}
+
+The framework achieved the two main requested properties to work with real-time applications.
+
 \end{frame}
 
 
@@ -1191,20 +1241,45 @@ Performances remain consistent changing the video quality.
 
 
 \end{section}
-\begin{section}{Conclusion and Future Directions}
+\begin{section}{Future Directions}
+
+
+
+\begin{frame}{\hskip 0.3cm Future Directions}
+
+
+
+ Creation of custom pragmas and clauses.
+
+\begin{itemize}
+
+\item Too many pragmas 
+
+\item No possibility to specify real-time constrains
+
+\end{itemize}
+
+  Better scheduler heuristics.
+
+\begin{itemize}
+
+\item Save time by early pruning.
+
+\end{itemize}
+
+ Implement a probabilistic profiling step.
+
+\begin{itemize}
+
+\item Some functions could not be called.
+
+\end{itemize}
+
+ Add the possibility to schedule task on GPUs.
 
 
 
 
-
-
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm }
 \end{frame}
 
 
