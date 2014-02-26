@@ -58,7 +58,7 @@ A Framework for static allocation of parallel OpenMP code on multi-core platform
 \author[]{Giacomo Dabisias, Filippo Brizzi}
 \institute[unipi]{
  Supervisors:
- E.Ruffaldi,
+ E. Ruffaldi,
 G. Buttazzo \\
 \vspace*{1\baselineskip} 
   Universit\`a degli studi di Pisa,\\
@@ -174,13 +174,16 @@ There is no actual automatic tool which has the advantages of HPC with timing co
 
 
 
+
+
+
 \begin{frame}{\hskip 0.3cm Objectives}
 
 The aim of this work is to create:
 
 \begin{itemize}
 
-\item An easy API to specify the concurrency between real- time tasks and scheduling parameters.
+\item An easy way to specify the concurrency between real- time tasks and scheduling parameters.
 
 \item A way to visualize task concurrency and code structure as graphs.
 
@@ -234,6 +237,21 @@ Clang
 In July 2013 Intel released a patched version of Clang which fully supports the OpenMP 3.3 standard. 
 
 \end{frame}
+
+
+
+
+
+
+
+
+
+
+\begin{frame}{\hskip 0.3cm Ompss}
+
+\end{frame}
+
+
 
 
 
@@ -305,14 +323,14 @@ The framework creates three types of graphs to visualize and work on the extract
 
 \item Flow Graph: represents the parallel execution flow and the synchronization barriers.
 
-\item Agumented Flow Graph: enhances the Flow Graph with the profiling informations and the function calls.
+\item Agumented Flow Graph: enhances the Flow Graph with the profiling information and the function calls.
 
 \item Schedule Graph: enhances the Agumented Flow Graph with scheduling informations.
 
 
 \end{itemize}			
 
-The graphs are stored using Python objects and visualized using Graphviz.
+The graphs are stored using XML and visualized using Graphviz.
 
 
 
@@ -444,9 +462,11 @@ int main(int argc, char* argv[]) {
 
 
 
+
+
+
 \begin{frame}{\hskip 0.3cm Clang}
 
-Clang and OpenMP:
 
 The strength of Clang lies in its implementation of the Abstract Syntax Tree (AST).
 \begin{itemize}
@@ -588,9 +608,7 @@ TranslationUnitDecl
 
 
 \begin{frame}[fragile]{\hskip 0.3cm Instrumentation for Profile}
-
-\begin{itemize}
-\item Creation of a custom profiler to time pragma code blocks and functions.  No existing profiling tool allows this operation.
+ Creation of a custom profiler to time OpenMP pragma code blocks and functions.  No existing profiling tool allows this operation.
 
 \begin{itemize}
 
@@ -600,8 +618,11 @@ TranslationUnitDecl
 
 \item Output is saved in an XML file.
 
+\item Allows to create the Agumented Flow Graph containing all the call information.
+
 \end{itemize}
-\end{itemize}
+
+
 \begin{lstlisting}[language=CCC]
 ...
 //#pragma omp parallel for
@@ -642,7 +663,7 @@ if( ProfileTracker profile_tracker = ProfileTrackParams(12, 25))
 
 \item The profiled code is executed $N$ times and statistics are obtained. 
 
-\item It is possible to use different arguments for the execution.
+\item IProfile statistics can be associated to different input arguments.
 
 \item An edge is added for each function call that contains pragmas.
 
@@ -660,7 +681,7 @@ if( ProfileTracker profile_tracker = ProfileTrackParams(12, 25))
 
 \end{columns}
 
-Possible evolution: probabilistic analysis of the function calls and execution times.
+Possible improvement: probabilistic analysis of the function calls and execution times.
 
 
 \end{frame}
@@ -932,11 +953,11 @@ Face recognition algorithm in OpenCV.
 
 \begin{itemize}
 
-\item Takes as input two videos to simulate the human view.
+\item Takes as input two videos to simulate a stereo camera system.
 
 \item Frames are dispatched in blocks of $N$ frames.
  
-\item All faces are detected and circled in each frame.
+\item All faces are detected, using a Cascade Detector Multiscale, and circled in each frame.
 
 \item All frames are saved on disk.
 
@@ -963,7 +984,7 @@ Three different qualities of the same videos have been used to test the algorith
 
 
 
-\begin{frame}{\hskip 0.3cm General structure}
+\begin{frame}{\hskip 0.3cm Agumented Flow Graph for Evaluation}
 
 \vskip -1cm
 
@@ -995,12 +1016,31 @@ Three different qualities of the same videos have been used to test the algorith
 \vskip -1cm
 \begin{itemize}
 
-\item 6 cores with hyperthreading.
+\item Test on a Intel i7@3.2 GHz with 6 cores and HT running Linux 3.8.0.
 
 \item Statistics are calculated over 5 executions.
 
+\item Tested with three different scheduler configurations: 4, 6 and 12 cores
+
+\item Video properties:
+
+\begin{itemize}
+
+\item 2 people in each.
+
+\item 1 minute length.
+
+\item 34 FPS.
+
+\item Resolutions : 640x360 (230400px), 1280x720 (921600px), 1920x1080 (2073600px)
+
 \end{itemize}
 
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{\hskip 0.3cm Results}
 
 \begin{center}
 \resizebox{\linewidth}{!}{
@@ -1275,7 +1315,7 @@ The framework achieved the two main requested properties to work with real-time 
 
 \end{itemize}
 
- Add the possibility to schedule task on GPUs.
+ Add the possibility to extend the concept to GPU and heterogeneous programming.
 
 
 
