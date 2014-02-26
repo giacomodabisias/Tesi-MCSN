@@ -16,6 +16,7 @@
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{pdfpages}
+\usepackage{subcaption} 
 
 \pagestyle{plain}
 
@@ -111,17 +112,68 @@
 \frenchspacing
 
 \begin{document}
+\begin{titlepage}
+\newgeometry{left=4cm,right=2cm, bottom=2cm}
+
+\begin{center}
+\begin{figure}
+\centering
+\begin{subfigure}{0.4\textwidth}
+  \centering
+  \includegraphics[]{unipi.jpeg}
+\end{subfigure}%
+\begin{subfigure}{0.4\textwidth}
+  \centering
+  \includegraphics[scale=0.93]{anna.jpg}
+\end{subfigure}
+\end{figure}
+\vspace*{0.1cm}
+\Huge{\textsc{Universit\`a degli Studi di Pisa}} \\
+\vspace*{0.3cm}
+\Huge{\textsc{Scuola Superiore Sant'Anna}}
+\rule{\linewidth}{0.1mm}
+\Large{{Master in Computer Science and Networking}}
+\vspace*{2cm}
+
+\Huge{\textbf{A Framework for static allocation of parallel OpenMP code on multi-core platforms.}}
+
+\begin{center}
+\Large
+by \\
+Filippo Brizzi, Giacomo Dabisias
+\end{center}
+
+\Large{February, 28 2014}
+
+\end{center}
+\vspace{1.5cm}
+\Large{
+Supervisors:
+
+Emanuele Ruffaldi,
+
+Giorgio Buttazzo}
+
+
+\end{titlepage}
+
+\newpage
+\thispagestyle{empty}
+\mbox{}
+
+
 \frontmatter
-\tableofcontents
+
 
 \chapter*{Abstract}
 
-The aim of this thesis is to create a framework for guaranteeing real-time constraints on parallel OpenMP C++ code. The framework provides a static schedule for the allocation of tasks on system threads and a run-time support for the real-time execution. In order to do so the original source code is first instrumented, then profiled and finally rewritten by means of clang. Performance results are provided on a Computer Vision application.
+The aim of this thesis is to create a framework for guaranteeing real-time constraints on parallel OpenMP C++ code. The framework provides a static schedule for the allocation of tasks on system threads and a run-time support for the real-time execution. In order to do so the original source code is first instrumented, then profiled and finally rewritten by means of Clang. Performance results are provided on a computer vision application.
 
 \section*{Chapter's structure}
 
 The thesis is organized as follows. Section I presents the motivations and context of the system, the terminology and all the necessary background concepts as OpenMP and Clang. Section II describes the overall framework structure along with a simple example to illustrate its execution flow. Section III illustrates how all the steps of Section II have been implemented using pseudocode to show the most relevant algorithms. Section VI includes tests and results of the framework on a computer vision application. Section V discusses the final results and some possible further extension for a future work.
 
+\tableofcontents
 \mainmatter
 \chapter{Introduction}
 
@@ -432,8 +484,8 @@ Algorithm~\ref{tree} represents the pseudocode for the creation of the pragma tr
 \Function{create\_tree}{pragma list L}
 \For{pragma \begin{bf}in\end{bf} L }
 \State Function f = \Call{get\_function}{pragma}; \Comment{Returns the function where the pragma is defined.}
-\State Node n = \Call{create\_node}{pragma, f}; \Comment{Exctract all the information from the AST node and save them in a custom class.}
-\If {f is the same function of the pragma exctracted before}
+\State Node n = \Call{create\_node}{pragma, f}; \Comment{Extract all the information from the AST node and save them in a custom class.}
+\If {f is the same function of the pragma extracted before}
 \State Tree.\Call{insert\_node}{n};
 \Else
 \State Create a new Tree associated with f and set it as the current tree.
@@ -506,10 +558,10 @@ becoming understandable by the framework.
 \begin{figure}
 \centering
 \includegraphics[scale=0.5]{pragma_exctraction.pdf}
-\caption{Execution flow of the pragma exctraction.}
+\caption{Execution flow of the pragma extraction.}
 \end{figure}
 
-Once all the pragmas have been translated and added in a tree, the new data structures are translated in XML format. Each object is described either by a \emph{Pragma} tag or by a \emph{Function} tag. The two tags contains a list of other tags, one for  each of the variables contained in the tree’s objects. The semantic of XML allows also to translate the original tree structure without loosing informations and this is done by nesting \emph{Pragma} tags one inside the other. The outermost tags are of type \emph{Function}; each function is the root of a tree so it will contain one or more \emph{Pragma} tags. In turn each \emph{Pragma} tag, if containing children nodes in its original tree, will contain other \emph{Pragma} tags. Code~\ref{xmlpragma} represent a portion of the XML code generated from the sample code in paragraph~\ref{example}.
+Once all the pragmas have been translated and added in a tree, the new data structures are translated in XML format. Each object is described either by a \emph{Pragma} tag or by a \emph{Function} tag. The two tags contains a list of other tags, one for  each of the variables contained in the tree’s objects. The semantic of XML allows also to translate the original tree structure without loosing informations and this is done by nesting \emph{Pragma} tags one inside the other. The outermost tags are of type \emph{Function}; each function is the root of a tree so it will contain one or more \emph{Pragma} tags. In turn each \emph{Pragma} tag, if containing children nodes in its original tree, will contain other \emph{Pragma} tags. Code~\ref{xmlpragma} represent a portion of the XML code generated from the sample code in section~\ref{example}.
 
 \begin{lstlisting}[language=XML, caption=XML file of the pragma structure of Code~\ref{code}., label=xmlpragma]
 <File>
@@ -609,11 +661,11 @@ In the \emph{call graph} each node invoking a function containing pragmas is con
 
 \section{Intrumentation for profiling}
 
-To produce a good schedule the framework needs informations about the tasks, in particular their computation time, their relations and precedences. Paragraph~\ref{code} shows how pragmas are extracted and their structure; the next step is to retreive the computation time of each task and the functions’ call graph. The only way to get these informations is to profile at run\-time the sequential version of the input code; to have the sequential version, given that the code is parallelized with OpenMP, it is enough to compile it without the \emph{\-fopenmp} flag. It is not possible to use existing profiling tools like gprof because they don't allow to time each pragma code block. for this reason a custom profiler has been implemented.
+To produce a good schedule the framework needs informations about the tasks, in particular their computation time, their relations and precedences. Section~\ref{code} shows how pragmas are extracted and their structure; the next step is to retreive the computation time of each task and the functions’ call graph. The only way to get these informations is to profile at run\-time the sequential version of the input code; to have the sequential version, given that the code is parallelized with OpenMP, it is enough to compile it without the \emph{-fopenmp} flag. It is not possible to use existing profiling tools like gprof because they don't allow to time each pragma code block. for this reason a custom profiler has been implemented.
 
 To be profiled the code needs to be instrumented; in the original code calls to a run-time support are added which calculate the execution time of each tasks, track the caller id of each function and store them in a log file. 
 
-The instrumentation is performed during the first parsing phase of the code, when the pragma statements are collected; the instrumentation does not depend on the semantic of each pragma and makes no distinction between functions and pragmas. The idea is that, each time a pragma or a call to a function is found, a call to the run-time support is inserted. As we have seen in paragraph~\ref{code}, both functions and pragmas have associated either a \emph{CompoundStmt} or a \emph{ForStmt} node. A \emph{CompoundStmt} has the characteristic that it always represents a block of code enveloped in a couple of curly brackets (a scope). In C++ variables declared inside a scope are locally to it, so they are destroyed when the scope ends; the idea is to insert in the original code, at the beginning of the scope, a call to a custom object constructor that starts a timer. When the scope ends the inserted object is destroyed and its destructor is called; the destructor stops the timer and saves the execution time in a log file. 
+The instrumentation is performed during the first parsing phase of the code, when the pragma statements are collected; the instrumentation does not depend on the semantic of each pragma and makes no distinction between functions and pragmas. The idea is that, each time a pragma or a call to a function is found, a call to the run-time support is inserted. As we have seen in section~\ref{code}, both functions and pragmas have associated either a \emph{CompoundStmt} or a \emph{ForStmt} node. A \emph{CompoundStmt} has the characteristic that it always represents a block of code enveloped in a couple of curly brackets (a scope). In C++ variables declared inside a scope are locally to it, so they are destroyed when the scope ends; the idea is to insert in the original code, at the beginning of the scope, a call to a custom object constructor that starts a timer. When the scope ends the inserted object is destroyed and its destructor is called; the destructor stops the timer and saves the execution time in a log file. 
 
 The tasks can be nested in each other and so the outermost tasks computation time contains the computation time of all its sub-tasks; in other words, the sum of all the tasks’ computation time could exceed the total computation time of the program. To obviate to this problem a method has been designed so that each task can keep track of the computation time of its children in order to obtain its effective computation time. This method allows also to keep track of the caller identity of each pragma and function which is always either another pragma or function.
 
@@ -693,7 +745,7 @@ The new data is added to the \emph{flow graph} previously produced~\ref{xmlpragm
 \lstset{language=XML}
 \begin{lstlisting}[caption=Final XML \emph{flow graph}, label=flow]
 <File>
-  <Name>source_exctractor/test_cases/thesis_test/omp_test.cpp</Name>
+  <Name>source_extractor/test_cases/thesis_test/omp_test.cpp</Name>
   <GraphType>flow</GraphType>
   <Function id="30">
     <Name>work</Name>
@@ -738,7 +790,7 @@ The new data is added to the \emph{flow graph} previously produced~\ref{xmlpragm
 \section{Schedule generation}
 \label{schedulegeneration}
 
-The problem of finding the best possible schedule on a multicore architecture is known to be a \emph{NP} hard problem. Given $N$ tasks and $M$ computing cores, the problem consists of creating $K$, possibly lower than $M$, execution flows in order to assign each task to a single flow. Each flow represents a computing core onto which the task should be run. To find a good solution a recursive algorithm has been developed which, by taking advantage of a search tree, figure~\ref{search_tree}, tries to explore all possible solutions, pruning "bad" brenches as soon as possible. Often the algorithm could not finish in a reasonable time due to the big number of possible solutions; to solve this problem a timer has been added to stop the computation after a certain amount of time given as input. \\
+The problem of finding the best possible schedule on a multicore architecture is known to be a \emph{NP} hard problem. Given $N$ tasks and $M$ computing cores, the problem consists of creating $K$, possibly lower than $M$, execution flows in order to assign each task to a single flow. Each flow represents a computing core onto which the task should be run. To find a good solution a recursive algorithm has been developed which, by taking advantage of a search tree, figure~\ref{search_tree}, tries to explore all possible solutions, pruning "bad" brenches as soon as possible. Often the algorithm could not finish in a reasonable time due to the big number of possible solutions; to solve this problem a timer has been added to stop the computation after a certain amount of time given as input.
 
 \begin{figure}
 \centering
@@ -792,7 +844,7 @@ for(int i = 8; i < 12; i ++)
 
 After the definition of the class, at the end of the scope, the framework adds a piece of code that instantiates an object of the created class and passes it to the run-time support. The object will be collected by the designated thread which will invoke the custom function that contains the original code, running it. 
 
-This approach does not change the structure of the code, in particular nested pragmas remain nested; this means that there will be classes definition inside others classes and more precisely there will be tasks inside other tasks. This may seem a problem because it creates dependencies between tasks, not allowing a fully customizable schedule, but this is not true. According to the OpenMP semantics each task is not fully independent from the others and there can be precedences in the execution, but this approach grants that if two tasks can be run in parallel there will be no dependencies between them. To understand this it is necessary to remind the OpenMP structure illustrated in paragraph~\ref{openmp}, where it is explained that two pragmas containing computation code can be related only if in two different functions. 
+This approach does not change the structure of the code, in particular nested pragmas remain nested; this means that there will be classes definition inside others classes and more precisely there will be tasks inside other tasks. This may seem a problem because it creates dependencies between tasks, not allowing a fully customizable schedule, but this is not true. According to the OpenMP semantics each task is not fully independent from the others and there can be precedences in the execution, but this approach grants that if two tasks can be run in parallel there will be no dependencies between them. To understand this it is necessary to remind the OpenMP structure illustrated in section~\ref{openmp}, where it is explained that two pragmas containing computation code can be related only if in two different functions. 
 
 
 \section{Run-time support}
@@ -883,7 +935,7 @@ Part of the XML produced for the example \ref{code} is shown  in \ref{schedule}
 \section{Graph creation}
 \label{graph}
 
-After the profiling step, the different types of gaphs described in paragraph~\ref{paralelism} are created. To generate the main graph, the \emph{flow graph}, which represents the execution flow of the program, the following pseudo code has been implemented:
+After the profiling step, the different types of gaphs described in section~\ref{paralelism} are created. To generate the main graph, the \emph{flow graph}, which represents the execution flow of the program, the following pseudo code has been implemented:
 
 \begin{algorithm}
 \begin{algorithmic}
@@ -964,7 +1016,7 @@ if( ProfileTracker profile_tracker = ProfileTrackParams(12, 25))
 ...
 \end{lstlisting}
 
-The structure of the \emph{ProfileTracker} class will be shown later in this paragraph. The code line number of the associated pragma, the container function and, in case of a For declaration, the number of iterations are passed to the constructor of the profiler class.
+The structure of the \emph{ProfileTracker} class will be shown later in this section. The code line number of the associated pragma, the container function and, in case of a For declaration, the number of iterations are passed to the constructor of the profiler class.
 
 Code~\ref{functionprofile} shows an example of how functions are annotated for the profiling. 
 
@@ -982,7 +1034,7 @@ Code~\ref{functionprofile} shows that the structure for profiling functions is a
 \subsection{Run-time}
 \label{profilerun}
 
-This section describes the structure of the two run-time classes involved in the execution of the profiled code. One was already shown in the previous paragraph and the other is \emph{ProfileTrackerLog}. 
+This section describes the structure of the two run-time classes involved in the execution of the profiled code. One was already shown in the previous section and the other is \emph{ProfileTrackerLog}. 
 
 \emph{ProfileTrack}’s constructor, when invoked, starts the timer for the current block, invokes \emph{ReplaceCurrentPragma(this)} which updates \emph{ProfileTracker} \\ \emph{*current\_pragma\_executing\_} with the input value and returns the old value of the variable. The returned value is saved in \emph{previous\_pragma\_executed\_} and identifies the caller id of the current pragma or function. \emph{current\_pragma\_executing\_} holds the reference to the pragma or function that is currently executing, it is used to track the caller id of each block and to create the call graph. 
 
@@ -1017,12 +1069,12 @@ To create the profiling log, containing all the statistics on the execution, the
 \caption{Pseudocode of the algorithm which produces the mean profiling log file}
 \end{algorithm}
 
-The algorithm starts by reading from input the number of iteration to execute, $N$; after that it launces the executable $N$ times using as arguments the data contained in a \emph{parameter.txt} file. After each execution, the algorithm, reads the produced log\_file and inserts the pragma/function data in a hash table, summing the execution times. After that the $N$ executions statistics are calculated, using the \emph{Numpy} Python package, and inserted in the hash table. The contained data is then used to construct a XML tree using the \emph{cElementTree} module. The so created XML tree is saved as a new profile log called \emph{`executable\_name'\_profile.xml}. The structure of such file is represented in Code~\ref{meanlog} and the last step consists in inserting the statistics in the \emph{flow graph} produced in paragraph~\ref{graph}.
+The algorithm starts by reading from input the number of iteration to execute, $N$; after that it launces the executable $N$ times using as arguments the data contained in a \emph{parameter.txt} file. After each execution, the algorithm, reads the produced log\_file and inserts the pragma/function data in a hash table, summing the execution times. After that the $N$ executions statistics are calculated, using the \emph{Numpy} Python package, and inserted in the hash table. The contained data is then used to construct a XML tree using the \emph{cElementTree} module. The so created XML tree is saved as a new profile log called \emph{`executable\_name'\_profile.xml}. The structure of such file is represented in Code~\ref{meanlog} and the last step consists in inserting the statistics in the \emph{flow graph} produced in section~\ref{graph}.
 
 
 \section{Schedule generating tool}
 
-As described in paragraph~\ref{schedulegeneration}, two versions of the scheduling algorithm have been developed: a sequential version and a parallel version. The main difference between this two algorithms consists in how the results are returned to the caller function. This is due to the fact that in Python, even if more threads are created, there is only a single interpreter, so all the threads execution is serialized; to avoid this problem the tool creates different processes, each with its own Python interpreter. In the sequential version, since the algorithm is working on shared memory, an empty result container can passed directly by the caller to the function which can then modify it. The parallel version uses instead queues implemented in the Python multiprocessing module which provide an easy API to communicate between procesess, based on send and recive operations. 
+As described in section~\ref{schedulegeneration}, two versions of the scheduling algorithm have been developed: a sequential version and a parallel version. The main difference between this two algorithms consists in how the results are returned to the caller function. This is due to the fact that in Python, even if more threads are created, there is only a single interpreter, so all the threads execution is serialized; to avoid this problem the tool creates different processes, each with its own Python interpreter. In the sequential version, since the algorithm is working on shared memory, an empty result container can passed directly by the caller to the function which can then modify it. The parallel version uses instead queues implemented in the Python multiprocessing module which provide an easy API to communicate between procesess, based on send and recive operations. 
 
 \begin{algorithm}
 \begin{algorithmic}
@@ -1111,7 +1163,7 @@ When the main program wants to call the parallel scheduler, it creates for each 
 
 After that it creates a new process passing to it a reference to the parallel scheduler function call along with the necessary arguments. All the procesess are then started and the main program remains in a wait state attending the result from the shared queues; after receiving the results, all the processes are joined and the best solution of all the executions is chosen.
 
-As described in paragraph~\ref{schedulegeneration} it is possible that the scheduler splits pragma \emph{for} and pragma \emph{parallel for} onto different threads. In this case new tasks are created which have to be added to the \emph{flow graph} created in paragraph~\ref{graph}. To do so all the new nodes are inserted in a hash table along with all the necessary informations of the originating node; after that the \emph{add\_new\_tasks(\dots)} function is invoked which taskes care of finding, for each new node, the originating node and substituting to it all the new splitted nodes. It is also necessary to add to all nodes the identifing flow id which has been calculated before by the scheduling algorithm.
+As described in section~\ref{schedulegeneration} it is possible that the scheduler splits pragma \emph{for} and pragma \emph{parallel for} onto different threads. In this case new tasks are created which have to be added to the \emph{flow graph} created in section~\ref{graph}. To do so all the new nodes are inserted in a hash table along with all the necessary informations of the originating node; after that the \emph{add\_new\_tasks(\dots)} function is invoked which taskes care of finding, for each new node, the originating node and substituting to it all the new splitted nodes. It is also necessary to add to all nodes the identifing flow id which has been calculated before by the scheduling algorithm.
 
 After creting the new final \emph{flow graph} and the schedule, it is necessary to check if the last one is feasible using the modified version of the Chetto\&Chetto algorithm.
 
@@ -1171,7 +1223,7 @@ After the \emph{chetto} call, the main program checks if all the deadlines and a
 
 \section{Final Execution}
 \subsection{Instrumentation}
-This paragraph will describe in details how the code is actually transformed accordingly to what was described in paragraph~\ref{designexecution}.
+This section will describe in details how the code is actually transformed accordingly to what was described in section~\ref{designexecution}.
 
 This phase deals only with pragmas and does not treat functions; if a pragma calls a function it will be considered as part of the pragma and it will be execute on the same thread. Of course if this function contains pragmas, these will be transformed in tasks and allocated as stated in the schedule.
 
@@ -1206,7 +1258,7 @@ Code~\ref{simpleinstrumentation} shows how the pragma \emph{section} at line 19 
 
 All the pragma’s code is wrapped in the \emph{fx()} function which belongs to the \emph{Nested} class, that is defined inside the pragma’s scope. The class \emph{Nested} has as parameter \emph{bar\_} which is the variable used inside the pragma block; in general each variable, of any kind, that is used inside the pragma block, but declared outside, is transformed into a class's variable. This is fundamental because when the object will be delivered to the designated thread, it will have a different scope. All the variables used inside a pragma node are stored in the AST and so it is quite easy to retrieve them. The \emph{OMPExecutableDirective} has the reference to an associated statement of type \emph{CapturedStmt} which has the reference to the \emph{CompoundStmt} or \emph{ForStmt} containing the code of the pragma and a reference to the list of all the \emph{VarDecl} objects representing variables used in it. The \emph{clone()} function is necessary for the instrumentation of \emph{for} pragmas and will be described later.
 
-What happens when Code~\ref{simpleinstrumentation} is executed? When the program enters the scope it jumps the class declaration and goes straight to line 23. Here the \emph{Nested} object, corresponding to the pragma \emph{section}, is instantiated: its constructor receives the pragma’s line number and all the parameters that are used inside the code, specifically in this case only the variable \emph{bar}. The constructor initializes its parameters which will be later used by \emph{fx} and calls the costructor of its super class (\emph{NestedBase}) passing to it the pragma identifier.  \emph{NestedBase} is a virtual class declared inside the run-time support which is anchestor of all the classes declared inside the instrumented code and it will be described in the following paragraph. Once the \emph{nested\_b} object is created it is passed to the run-time in the following line. There are other two lines of code that have not been explained: \emph{launch\_todo\_job()} and \emph{todo\_job\_.push(nested\_b)}. These two function calls are necessary to avoid problems during the execution of nested tasks and will be explained in paragraph~\ref{runtime}.
+What happens when Code~\ref{simpleinstrumentation} is executed? When the program enters the scope it jumps the class declaration and goes straight to line 23. Here the \emph{Nested} object, corresponding to the pragma \emph{section}, is instantiated: its constructor receives the pragma’s line number and all the parameters that are used inside the code, specifically in this case only the variable \emph{bar}. The constructor initializes its parameters which will be later used by \emph{fx} and calls the costructor of its super class (\emph{NestedBase}) passing to it the pragma identifier.  \emph{NestedBase} is a virtual class declared inside the run-time support which is anchestor of all the classes declared inside the instrumented code and it will be described in the following section. Once the \emph{nested\_b} object is created it is passed to the run-time in the following line. There are other two lines of code that have not been explained: \emph{launch\_todo\_job()} and \emph{todo\_job\_.push(nested\_b)}. These two function calls are necessary to avoid problems during the execution of nested tasks and will be explained in section~\ref{runtime}.
 
 Code~\ref{simpleinstrumentation} shows how \emph{section} pragmas are instrumented; this method is also valid for \emph{task}, \emph{sections}, \emph{parallel}, \dots pragmas, but it is not correct for the \emph{for} pragma. Code~\ref{for} shows how \emph{for} pragmas are instrumented.
 
@@ -1240,9 +1292,9 @@ Code~\ref{simpleinstrumentation} shows how \emph{section} pragmas are instrument
 }
 \end{lstlisting}
 
-In case of a \emph{for} pragma the instrumentation becomes a little bit more tricky, but what was true for Code~\ref{simpleinstrumentation} still holds. First of all it is possible to notice that the For declaration has been changed accordingly to what stated in paragraph~\ref{designexecution} and that function \emph{fx()} receives an additional parameter \emph{ForParameter for\_param}. The new parameter is created, passed to the function directly by the run-time and used to specify to each thread which iterations of the For to execute. The \emph{clone()} function, as the name suggests, is used to create copies of the \emph{Nested} object; this is necessary because, when a For is split among different threads, each one needs the object. Threads can’t share the same object since it is most likely that they will execute concurrently, invoking the same function from the same object, creating a race condition. 
+In case of a \emph{for} pragma the instrumentation becomes a little bit more tricky, but what was true for Code~\ref{simpleinstrumentation} still holds. First of all it is possible to notice that the For declaration has been changed accordingly to what stated in section~\ref{designexecution} and that function \emph{fx()} receives an additional parameter \emph{ForParameter for\_param}. The new parameter is created, passed to the function directly by the run-time and used to specify to each thread which iterations of the For to execute. The \emph{clone()} function, as the name suggests, is used to create copies of the \emph{Nested} object; this is necessary because, when a For is split among different threads, each one needs the object. Threads can’t share the same object since it is most likely that they will execute concurrently, invoking the same function from the same object, creating a race condition. 
 
-The structure of the pragmas in the original source code is not modified during the instrumentation, as explained in paragraph~\ref{designexecution} and this implies that nested pragmas are translated into nested tasks. The consequence of this fact is simply that the outermost tasks, of type \emph{parallel}, are instantiated by the main thread, while the others are allocated and passed to the run-time by the containing task. The overhead to allocate the \emph{Nested} object and to pass it to the run-time is very small, but in any case this approach allows to split this overhead among the threads improving the overall performance. Code~\ref{annidation} shows a piece of the code generated instrumenting Code~\ref{code} illustrating the nested structure of the tasks.
+The structure of the pragmas in the original source code is not modified during the instrumentation, as explained in section~\ref{designexecution} and this implies that nested pragmas are translated into nested tasks. The consequence of this fact is simply that the outermost tasks, of type \emph{parallel}, are instantiated by the main thread, while the others are allocated and passed to the run-time by the containing task. The overhead to allocate the \emph{Nested} object and to pass it to the run-time is very small, but in any case this approach allows to split this overhead among the threads improving the overall performance. Code~\ref{annidation} shows a piece of the code generated instrumenting Code~\ref{code} illustrating the nested structure of the tasks.
 
 \begin{lstlisting}[language=CCC, caption=Example of tasks annidation from Code~\ref{code}., label=annidation]
 int main(int argc, char* argv[]) {
@@ -1277,7 +1329,7 @@ int main(int argc, char* argv[]) {
 \end{lstlisting}
 
 \begin{comment}
-To complete this paragraph there is only to explain how \emph{barrier} pragmas are annotated; an instrumented \emph{barrier} is shown in Code~\ref{barrier}.
+To complete this section there is only to explain how \emph{barrier} pragmas are annotated; an instrumented \emph{barrier} is shown in Code~\ref{barrier}.
 
 \begin{lstlisting}[language=CCC, caption=Example of \emph{barrier} instrumentation., label=barrier]
 {
@@ -1301,8 +1353,8 @@ In OpenMP a \emph{barrier} pragma is used to notifies the run-time that some thr
 \label{runtime}
 The run-time support for the final parallel execution is composed of two classes: \emph{NestedBase} and \emph{ThreadPool}. \emph{NestedBase} is the virtual class from which every \emph{Nested} class derives; it just stores the identifier (line number) of the corresponding pragma, \emph{int pragma\_id\_}, and a list of tasks, \emph{queue$<$shared\_ptr$<$NestedBase$>>$ todo\_job\_}. This common interface is necessary to handle each task because each \emph{Nested} class, corresponding to a task, exists only inside its scope and it is not usable outside.   
 
-\emph{ThreadPool} is the class that implements the real-time support and it declares two structures: \emph{ScheduleOptions} and \emph{JobIn}. \emph{ThreadPool} has been implemented as a singleton class; the reasons which motivated this choice are the same as the ones shown in paragraph~\ref{profilerun}, for the \emph{ProfileTrackerLog} class. There is no need to protect the instantiation of the class with mutexes given that it is the constructor of this class that instantiates the threads pool.
-\emph{ThreadPool}’s constructor parses the input XML schedule file exctracting all the relevant informations. The first tag of the file contains the number of threads to be instantiated; this number is passed to the \emph{init()} function which creates a thread object and pushes it into the thread queue.
+\emph{ThreadPool} is the class that implements the real-time support and it declares two structures: \emph{ScheduleOptions} and \emph{JobIn}. \emph{ThreadPool} has been implemented as a singleton class; the reasons which motivated this choice are the same as the ones shown in section~\ref{profilerun}, for the \emph{ProfileTrackerLog} class. There is no need to protect the instantiation of the class with mutexes given that it is the constructor of this class that instantiates the threads pool.
+\emph{ThreadPool}’s constructor parses the input XML schedule file extracting all the relevant informations. The first tag of the file contains the number of threads to be instantiated; this number is passed to the \emph{init()} function which creates a thread object and pushes it into the thread queue.
 \begin{lstlisting}[language=CCC, caption=Initialization of the thread pool., label=pool]
 vector<thread> threads_pool_;
 threads_pool_.reserve(pool_size);
@@ -1508,9 +1560,9 @@ One of the produced schedule in shown in code \ref{scheduletest}.
 \end{lstlisting}
 
 
-\section{Results with statistics}
+\section{Results}
 
-Table \ref{timetable} illustrates the completion time of the sequential execution, the OpenMP version and the program rewritten using the framework; from now on, for the sake of simplicity, the framework will be called Soma (static OpenMP multicore allocator). As seen from table \ref{timetable} and graph \ref{timegraph} the framework achieves the same statistics as OpenMP having an almost one scaling factor.
+Table \ref{timetable} illustrates the completion time of the sequential execution, the OpenMP version and the program rewritten using the framework; from now on, for the sake of simplicity, the framework will be called Soma (static OpenMP multicore allocator). As seen from table \ref{timetable} and figure \ref{timegraph} the framework achieves the same statistics as OpenMP having an almost one scaling factor.
 
 \begin{figure}[H]
 \centering
@@ -1567,7 +1619,7 @@ All the results remain consistent for all the different input videos; each threa
 5 & - & - & 0.3041 & 0.0017 & 0.2981 &  0.0006       \\
 \hline
 \end{tabular}
-\caption{Service time of each thread (gap between the delivery of a parsed image). Video quality 480p}
+\caption{Service time in seconds of each thread (gap between the delivery of a parsed image). Video quality 480p}
 \label{times}
 \end{center}
 \end{table}
@@ -1576,14 +1628,14 @@ All the results remain consistent for all the different input videos; each threa
 \begin{figure}[H]
 \centering
 \includegraphics[scale=0.55]{omp_time_480txtbox.png}
-\caption{Boxplot OpenMP 480p.}
+\caption{Boxplot OpenMP 480p. (time in seconds)}
 \label{box480omp}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[scale=0.55]{soma_time_480txtbox.png}
-\caption{Boxplot Soma 480p.}
+\caption{Boxplot Soma 480p. (time in seconds)}
 \label{box480soma}
 \end{figure}
 
@@ -1610,7 +1662,7 @@ All the results remain consistent for all the different input videos; each threa
 5 & - & - & 1.4256 & 0.0129 & 1.4117 & 0.0060  \\
 \hline
 \end{tabular}
-\caption{Service time of each thread (gap between the delivery of a parsed image). Video quality 720p}
+\caption{Service time in seconds of each thread (gap between the delivery of a parsed image). Video quality 720p}
 \label{times2}
 \end{center}
 \end{table}
@@ -1618,14 +1670,14 @@ All the results remain consistent for all the different input videos; each threa
 \begin{figure}[H]
 \centering
 \includegraphics[scale=0.55]{omp_time_720txtbox.png}
-\caption{Boxplot OpenMP 720p.}
+\caption{Boxplot OpenMP 720p. (time in seconds)}
 \label{box720omp}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[scale=0.55]{soma_time_720txtbox.png}
-\caption{Boxplot Soma 720p.}
+\caption{Boxplot Soma 720p. (time in seconds)}
 \label{box720soma}
 \end{figure}
 
@@ -1651,7 +1703,7 @@ All the results remain consistent for all the different input videos; each threa
 5 & - & - & 3.4914 & 0.0316 & 3.4976 & 0.0199  \\
 \hline
 \end{tabular}
-\caption{Service time of each thread (gap between the delivery of a parsed image). Video quality 1080p}
+\caption{Service time in seconds of each thread (gap between the delivery of a parsed image). Video quality 1080p}
 \label{times3}
 \end{center}
 \end{table}
@@ -1659,14 +1711,14 @@ All the results remain consistent for all the different input videos; each threa
 \begin{figure}[H]
 \centering
 \includegraphics[scale=0.55]{omp_time_1080txtbox.png}
-\caption{Boxplot OpenMP 1080p.}
+\caption{Boxplot OpenMP 1080p. (time in seconds)}
 \label{box1080omp}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[scale=0.55]{soma_time_1080txtbox.png}
-\caption{Boxplot Soma 1080p.}
+\caption{Boxplot Soma 1080p. (time in seconds)}
 \label{box1080soma}
 \end{figure}
 
@@ -1734,7 +1786,7 @@ There are some known bugs that are still to be fixed, but do not effect drastica
 
 If two jobs invoke concurrently the same function, containing pragmas, the execution can deadlock. This is due to two main reasons, one related with the scheduler and one with the run-time support. For what concerns the scheduler, there is a problem in the identification of the pragma caller, while in the run-time support there is a problem if the called pragmas are scheduled on the same thread of one of the control pragmas. 
 
-If the pragma structure is too complex there are too many concurrent control jobs which saturate the thread pool, preventing the working tasks' execution. The solution explained in paragraph~\ref{runtime} solves this problem only for limited nesting as in the test program in paragraph~\ref{test}.
+If the pragma structure is too complex there are too many concurrent control jobs which saturate the thread pool, preventing the working tasks' execution. The solution explained in section~\ref{runtime} solves this problem only for limited nesting as in the test program in section~\ref{test}.
 
 There is another case in which the execution deadlocks; this is caused when the schedueler schedules tasks belonging to different branches in a crossed manner. This could be solved by adding constraints in the scheduler, but it has not been implemented since it requires to limit the general feasible pragmas structure. 
 
@@ -1750,7 +1802,7 @@ The schedule algorithm could also be improved with better heuristics in order to
 
 The profiling step could extract more informations of the working platform to enhance the scheduling sequence and could check automatically different inputs to obtain the best results.
 
-As done in \cite{ompss} could be possible to exetend the framework with the capability to support asynchronous parallelism and heterogeneity (devices like GPUs). Paragraph \ref{patch} shows that it is already feasible to patch Clang to support new OpenMP clauses; to address GPUs the code has to be rewritten using CUDA or OpenCL directives.
+As done in \cite{ompss} could be possible to exetend the framework with the capability to support asynchronous parallelism and heterogeneity (devices like GPUs). Section \ref{patch} shows that it is already feasible to patch Clang to support new OpenMP clauses; to address GPUs the code has to be rewritten using CUDA or OpenCL directives.
 
 \begin{lstlisting}[language=CCC, caption=Example of a periodic task., label=periodictask]
 #pragma omp parallel for
