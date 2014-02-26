@@ -1429,7 +1429,8 @@ Computer vision is a field that includes methods for acquiring, processing, anal
 
 A widely used operation sequence consists in aquiring an image, filtering out all the irrelevant details, extracting some features, match the features against a predefined object and then build a homography matrix in order to obtain the position of the object in the image. In general computer vision operations can work on single pixels, blocks of pixels or entire images; depending on this it is possible to apply task parallelism or data parallelism. \emph{Map-reduce} and \emph{Pipelines} are farly common in this sector given that often a stream of images is processed by applying different filters in sequence, using a \emph{Pipeline}; each filter is parallelized dividing the image in chuncks which are processed by different computing units and then reassembled to form the final image, \emph{Map-reduce}.
 
-The test application consists of a face recognition algorithm in OpenCV (\cite{opencv}\cite{openbook}) that analyzes two videos which reseamble the stereoscopic view of a person. The application tryes to recognize each face in each video frame and then prints a circle in the frame to locate it. The test videos have been produced in three different formats: 480p, 720p and 1080p; in each video two different people move around in a closed environment.  Algorithm~\ref{testcode} shows the general structure of the test code.
+The test application consists of a face recognition algorithm in OpenCV (\cite{opencv}\cite{openbook}) that analyzes two videos which reseamble the stereoscopic view of a person. To detect the faces a Cascade Detector Multiscale has been used which is a Haar Detector; it uses HAAR features and ADABOOST tecniques to retrive the faces \cite{cascade}. The application tryes to recognize each face in each video frame and then prints a circle in the frame to locate it.
+ The test videos have been produced in three different formats: 480p, 720p and 1080p; in each video two different people move around in a closed environment.  Algorithm~\ref{testcode} shows the general structure of the test code.
 
 \begin{algorithm}
 \begin{algorithmic}
@@ -1562,6 +1563,8 @@ One of the produced schedule in shown in code \ref{scheduletest}.
 
 \section{Results}
 
+All the tests have been executed on a machine with an Intel Core i7-3930K @ 3.20 GHz, 12MB cache, 24GB RAM using Ubuntu 13.04, Clang 3.2 and gcc 4.8.1.
+
 Table \ref{timetable} illustrates the completion time of the sequential execution, the OpenMP version and the program rewritten using the framework; from now on, for the sake of simplicity, the framework will be called Soma (static OpenMP multicore allocator). As seen from table \ref{timetable} and figure \ref{timegraph} the framework achieves the same statistics as OpenMP having an almost one scaling factor.
 
 \begin{figure}[H]
@@ -1594,7 +1597,7 @@ Table \ref{timetable} illustrates the completion time of the sequential executio
 
 All the represented values have been obtained executing five times the test program. The different service times, for each thread, have been analyzed in each of the three different video qualities. This time is given by the value between two consecutives frame outputs and its mean value and variance are shown in the relative tables; boxplots have been created to show their statistics. 
 
-All the results remain consistent for all the different input videos; each thread has similar statistics both in OpenMP and Soma. As expected from table \ref{timetable} the service time of OpenMP and Soma are almost the same; the only difference results in a lower variance in almost all cases, achieving half the OpenMP value in the majority. This result shows that the overhead introduced by the runtime support of Soma is almost constant gauranteeing the possibility of achieving real-time contrains. The boxplots represents all the measurements of the services times of each thread; it it possible to notice that each boxpolot shows some higher values due to the initial runtime overhed. OpenMP has almost always a constant value, while Soma has a higher variance on it.
+All the results remain consistent for all the different input videos; each thread has similar statistics both in OpenMP and Soma. As expected from table \ref{timetable} the service time of OpenMP and Soma are almost the same (Table \ref{times}, \ref{times2}, \ref{times3}); the only difference results in a lower variance in almost all cases, achieving half the OpenMP value in the majority. This result shows that the overhead introduced by the runtime support of Soma is almost constant gauranteeing the possibility of achieving real-time contrains. The boxplots in figure \ref{box480omp}, \ref{box480soma}, \ref{box720omp}, \ref{box720soma}, \ref{box1080omp}, \ref{box1080soma} represent all the measurements of the services times of each thread; it it possible to notice that each boxpolot shows some higher values due to the initial runtime overhed. OpenMP has almost always a constant value, while Soma has a higher variance on it.
 
 
 \begin{table}[H]
@@ -1723,7 +1726,7 @@ All the results remain consistent for all the different input videos; each threa
 \end{figure}
 
 
-The following graphs compare the jitter and time difference between the single cores' service time in the current framework and OpenMP. In each graph the n-th images produces by each thread have been connected with a line to show this reasults. It can be seen that OpenMP produces an increasing delay between the left and right frames production while Soma tents to realign the frame output times whenever the delay between the threads is increasing. This property is very important since left and right frame should be produced at the same time and rate.
+Figures \ref{omp480jitter}, \ref{soma480jitter}, \ref{omp720jitter}, \ref{soma720jitter}, \ref{omp1080jitter}, \ref{soma1080jitter} compare the jitter and time difference between the single cores' service time in the current framework and OpenMP. In each graph the n-th images produces by each thread have been connected with a line to show this reasults. It can be seen that OpenMP produces an increasing delay between the left and right frames production while Soma tents to realign the frame output times whenever the delay between the threads is increasing. This property is very important since left and right frame should be produced at the same time and rate.
 
 \begin{figure}[H]
 \centering
@@ -1847,6 +1850,7 @@ APA
 \bibitem{pop}Antoniu Pop (1998). \emph{OpenMP and Work-Streaming Compilation in GCC}. 3 April 2011, Chamonix, France
 \bibitem{opencv}http://opencv.org
 \bibitem{openbook}G. Bradski, A. Kaehler. \emph{Learning OpenCV: Computer vision with the OpenCV library}. O'reilly, 2008.
+\bibitem{cascade}R. Lienhart, J. Maydt. \emph{An extended set of haar-like features for rapid object detection.} Image Processing. 2002. Proceedings. 2002 International Conference on. Vol. 1. IEEE, 2002.
 
 \end{thebibliography}
 
