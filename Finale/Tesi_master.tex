@@ -1563,7 +1563,7 @@ One of the produced schedule in shown in code \ref{scheduletest}.
 
 \section{Results}
 
-All the tests have been executed on a machine with an Intel Core i7-3930K @ 3.20 GHz, 12MB cache, 24GB RAM using Ubuntu 13.04, Clang 3.2 and gcc 4.8.1.
+All the tests have been executed on a machine with an Intel Core i7-3930K @ 3.20 GHz with 6 cores, 12MB cache, 24GB RAM using Ubuntu 13.04, Clang 3.2 and gcc 4.8.1.
 
 Table \ref{timetable} illustrates the completion time of the sequential execution, the OpenMP version and the program rewritten using the framework; from now on, for the sake of simplicity, the framework will be called Soma (static OpenMP multicore allocator). As seen from table \ref{timetable} and figure \ref{timegraph} the framework achieves the same statistics as OpenMP having an almost one scaling factor.
 
@@ -1652,7 +1652,7 @@ All the results remain consistent for all the different input videos; each threa
 & mean & variance & mean & variance & mean & variance \\
 \cline{2-7}
 \hline
-0 & 1.3263 & 0.1968 & 1.4226 & 0.0092 & 3.4987 & 0.0065  \\
+0 & 1.3263 & 0.1968 & 1.4226 & 0.0092 & 1.4987 & 0.0065  \\
 \hline
 1 & - & - & 1.4225 & 0.0090 & 1.4297 & 0.0065 \\
 \hline

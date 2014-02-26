@@ -1,7 +1,6 @@
 
 \documentclass[xcolor=dvipsnames]{beamer}
 \usepackage{tikz}
-
 \usepackage{latexsym}
 \usepackage{braket}
 \usepackage{graphicx}
@@ -58,11 +57,19 @@
 A Framework for static allocation of parallel OpenMP code on multi-core platforms\\}
 \author[]{Giacomo Dabisias, Filippo Brizzi}
 \institute[unipi]{
+ Supervisors:
+ E.Ruffaldi,
+G. Buttazzo \\
+\vspace*{1\baselineskip} 
   Universit\`a degli studi di Pisa,\\
   Scuola Superiore Sant'Anna\\
   Pisa,Italy\\[1ex]
 
+ 
+
+
 }
+
 
 
 \definecolor{blue}{RGB}{0,0,180}
@@ -169,7 +176,7 @@ There is no actual automatic tool which has the advantages of HPC with timing co
 
 \begin{frame}{\hskip 0.3cm Objectives}
 
-The devloped framework has the following characteristics.
+The aim of this work is to create:
 
 \begin{itemize}
 
@@ -198,7 +205,7 @@ the specific platform.
 
 
 
-\begin{frame}{\hskip 0.3cm Design Choice: OpenMP and Clang}
+\begin{frame}{\hskip 0.3cm Design Choices: OpenMP and Clang}
 
 
 OpenMP 
@@ -294,16 +301,18 @@ The framework creates three types of graphs to visualize and work on the extract
 
 \begin{itemize}		
 
-\item Code Graph : represents the nested structure of the pragmas in the source code.
+\item Code Graph: represents the nested structure of the pragmas in the source code.
 
-\item Flow Graph : represents the parallel execution flow and the synchronization barriers.
+\item Flow Graph: represents the parallel execution flow and the synchronization barriers.
 
-\item Agumented Flow Graph : enhances the Flow Graph with the profiling informations and the function calls.
+\item Agumented Flow Graph: enhances the Flow Graph with the profiling informations and the function calls.
+
+\item Schedule graph: enhances the Agumented Flow Graph with scheduling informations.
 
 
 \end{itemize}			
 
-The graphs are stored using Python objects and visualized using Pydot.
+The graphs are stored using Python objects and visualized using Graphviz.
 
 
 
@@ -737,7 +746,7 @@ The scheduler assigns each task to a flow using a search tree. Each flow will be
 
 \begin{frame}{\hskip 0.3cm Scheduler - Feasibility}
 
-The produced schedule does not account for precedence relations. A modified version of Chetto\&Chetto has been used to check the feasibility.
+The produced schedule does not account for precedence relations. A modified version of Chetto\&Chetto (1990) has been used to check the feasibility.
 
 \begin{itemize}
 
@@ -904,105 +913,6 @@ Each thread behaves as follows
 
 
 
-
-\begin{frame}{\hskip 0.3cm Scheduler - (Cetto \& Chetto)}
-\end{frame}
-
-
-
-
-
-
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm Final execution}
-\end{frame}
-
-
-
-
-
-
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm Final execution - Intrumentation}
-\end{frame}
-
-
-
-
-
-
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm Final execution - Run-time}
-\end{frame}
-
-
-
-
-
-
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm Fianl execution - (thread pool)}
-\end{frame}
-
-
-
-
-
-
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm Final execution - (multiple job queues)}
-\end{frame}
-
-
-
-
-
-
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm Final execution - (synchronization)}
-\end{frame}
-
-
-
-
-
-
-
-
-
-
-
-
 \end{section}
 \begin{section}{Test}
 
@@ -1016,23 +926,59 @@ Each thread behaves as follows
 
 
 
+\begin{frame}{\hskip 0.3cm General structure}
+
+Face recognition algorithm in OpenCV.
+
+\begin{itemize}
+
+\item Takes as input two videos to simulate the human view.
+
+\item Frames are dispatched in blocks of $N$ frames.
+ 
+\item All faces are detected and circled in each frame.
+
+\item All frames are saved on disk.
+
+
+\end{itemize}
+
+Three different qualities of the same videos have been used to test the algorithm (480p, 720p, 1080p).
+
+
+\end{frame}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 \begin{frame}{\hskip 0.3cm General structure}
+
+\vskip -1cm
+
+\begin{figure}
+\hskip -1cm
+
+\includegraphics[scale=0.23]{test.pdf}
+\end{figure}
+
 \end{frame}
 
 
 
 
 
-
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm General structure -(graph of the test code)}
-\end{frame}
 
 
 
@@ -1046,6 +992,49 @@ Each thread behaves as follows
 
 
 \begin{frame}{\hskip 0.3cm Results}
+\vskip -1cm
+\begin{itemize}
+
+\item 6 cores with hyperthreading.
+
+\item Statistics are calculated over 5 executions.
+
+\end{itemize}
+
+
+\begin{center}
+\resizebox{\linewidth}{!}{
+
+\begin{tabular}{| l || c || c | c || c | c |}
+\hline
+ & \multicolumn{1}{|c||}{Sequential} & \multicolumn{2}{|c||}{OpenMP} & \multicolumn{2}{|c|}{Soma} \\
+\cline{2-6}
+  & $T_{seq}[s]$ & $T_c(n)[s]$ & $\epsilon (n) = \frac{T_{seq}}{nT_c(n)}$ & $T_c(n)[s]$ & $\epsilon (n) = \frac{T_{seq}}{nT_c(n)}$ \\
+\cline{2-6}
+\hline
+480p(4) & 750 & 195 & 0.96 & 195 & 0.96 \\
+\hline
+720p(4) & 3525 & 921 & 0.96 & 921 & 0.96 \\
+\hline
+1080p(4) & 8645 & 2271 & 0.95 & 2270 & 0.95 \\
+\hline 
+\hline
+480p(6) & - & 133 & 0.94 & 134 & 0.93 \\
+\hline
+720p(6) & - & 627 & 0.94 & 629 & 0.93 \\
+\hline
+1080p(6) & - & 1536 & 0.94 & 1539 & 0.94 \\
+\hline 
+\hline
+480p(12) & - & 98 & 0.64 & 92 & 0.68 \\
+\hline
+720p(12) & - & 427 & 0.69 & 426 & 0.69 \\
+\hline
+1080p(12) & - & 1043 & 0.69 & 1035 & 0.70 \\
+\hline 
+\end{tabular} }
+\end{center}
+
 \end{frame}
 
 
@@ -1059,7 +1048,52 @@ Each thread behaves as follows
 
 
 
-\begin{frame}{\hskip 0.3cm Results - (some tables and graphs)}
+\begin{frame}{\hskip 0.3cm Results - Service Time}
+
+Service time in second of each thread (gap between the delivery of a parsed image).
+
+\begin{itemize}
+
+\item Soma variance $<$ OpenMP variance
+
+\item Video quality 720p, 6 cores. 
+
+\end{itemize}
+
+\begin{center}
+\resizebox{\linewidth}{!}{
+
+\begin{tabular}{| l || c | c || c | c || c | c |} 
+\hline
+  Thread & \multicolumn{2}{|c||}{Sequential} & \multicolumn{2}{|c||}{OpenMP} & \multicolumn{2}{|c|}{Soma} \\
+\cline{2-7}
+& $T_s$ & $variance$ & $T_s$ & $variance$ & $T_s$ & $variance$ \\
+\cline{2-7}
+\hline
+0 & 1.3263 & 0.1968 & 1.4226 & 0.0092 & 1.4987 & 0.0065  \\
+\hline
+1 & - & - & 1.4225 & 0.0090 & 1.4297 & 0.0065 \\
+\hline
+2 & - & - & 1.4225 & 0.0098 & 1.4298 & 0.0065 \\
+\hline 
+3 & - & - & 1.4257 & 0.0125 & 1.4117 & 0.0067 \\
+\hline
+4 & - & - & 1.4256 & 0.0129 & 1.4111 & 0.0060 \\
+\hline
+5 & - & - & 1.4256 & 0.0129 & 1.4117 & 0.0060  \\
+\hline
+\end{tabular}}
+\end{center}
+
+Performances remain consistent changing the video quality.
+
+
+
+
+
+
+
+
 \end{frame}
 
 
@@ -1073,22 +1107,49 @@ Each thread behaves as follows
 
 
 
-\begin{frame}{\hskip 0.3cm Results - (total completion time)}
+\begin{frame}{\hskip 0.3cm Results - Mean Service Time}
+
+\begin{center}
+\resizebox{\linewidth}{!}{
+
+\begin{tabular}{| l || c || c | c || c | c |}
+\hline
+ & \multicolumn{1}{|c||}{Sequential} & \multicolumn{2}{|c||}{OpenMP} & \multicolumn{2}{|c|}{Soma} \\
+\cline{2-6}
+  & $mean\ T_s$ & $mean\ T_s$ & $mean\ var$ & $mean\ T_s$ & $mean\ var$ \\
+\cline{2-6}
+\hline
+480p(4) & 750 & 195 & 0.96 & 195 & 0.96 \\
+\hline
+720p(4) & 3525 & 921 & 0.96 & 921 & 0.96 \\
+\hline
+1080p(4) & 8645 & 2271 & 0.95 & 2270 & 0.95 \\
+\hline 
+\hline
+480p(6) & - & 133 & 0.94 & 134 & 0.93 \\
+\hline
+720p(6) & - & 627 & 0.94 & 629 & 0.93 \\
+\hline
+1080p(6) & - & 1536 & 0.94 & 1539 & 0.94 \\
+\hline 
+\hline
+480p(12) & - & 98 & 0.64 & 92 & 0.68 \\
+\hline
+720p(12) & - & 427 & 0.69 & 426 & 0.69 \\
+\hline
+1080p(12) & - & 1043 & 0.69 & 1035 & 0.70 \\
+\hline 
+\end{tabular} }
+\end{center}
+
+
+
+
+
+
+
 \end{frame}
 
-
-
-
-
-
-
-
-
-
-
-
-\begin{frame}{\hskip 0.3cm Results - (service time - boxplot)}
-\end{frame}
 
 
 
@@ -1130,7 +1191,7 @@ Each thread behaves as follows
 
 
 \end{section}
-\begin{section}{Conclusion}
+\begin{section}{Conclusion and Future Directions}
 
 
 
