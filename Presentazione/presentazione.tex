@@ -183,7 +183,7 @@ The aim of this work is to create:
 
 \begin{itemize}
 
-\item An easy way to specify the concurrency between real- time tasks and scheduling parameters.
+\item An easy way to specify the concurrency between real-time tasks and scheduling parameters.
 
 \item A way to visualize task concurrency and code structure as graphs.
 
@@ -554,7 +554,7 @@ Clang supports the insertion of custom code through the Rewriter class.
 
 
 
-\begin{frame}[fragile]{\hskip 0.3cm Clang - AST}
+\begin{frame}[fragile]{\hskip 0.3cm Clang - AST Example}
 
 \begin{columns}
 
@@ -739,13 +739,24 @@ Possible improvement: probabilistic analysis of the function calls and execution
 
 
 \begin{frame}{\hskip 0.3cm }
-\vskip +3.45cm
-\begin{tikzpicture}[remember picture,overlay]
-            \node[at=(current page.center)] {
-                \includegraphics[scale = 0.25]{tgraph2.pdf}
-            };
-        \end{tikzpicture}
+\begin{columns}
+\begin{column}{6.5cm}
+\vskip -1.2cm
 
+\begin{figure}
+\hskip -1cm
+\includegraphics[scale=0.22]{zoom2.png}
+\end{figure}
+
+\end{column}
+\begin{column}{3.5cm}
+\vskip -1.5cm
+\begin{figure}
+\includegraphics[scale=0.15]{framework.pdf}
+\end{figure}
+
+\end{column}
+\end{columns}
 \end{frame}
 
 
@@ -847,13 +858,25 @@ The produced schedule does not account for precedence relations. A modified vers
 
 
 \begin{frame}{\hskip 0.3cm }
-%\vskip +3.45cm
-\begin{tikzpicture}[remember picture,overlay]
-            \node[at=(current page.center)] {
-                \includegraphics[scale = 0.25]{tgraph3.pdf}
-            };
-        \end{tikzpicture}
+\begin{columns}
+\begin{column}{6.5cm}
+\vskip -1.7cm
 
+\begin{figure}
+\hskip -0.7cm
+\includegraphics[scale=0.21]{zoom3.png}
+\end{figure}
+
+\end{column}
+\begin{column}{4cm}
+\vskip -1.5cm
+\begin{figure}
+\hskip -0.5cm
+\includegraphics[scale=0.15]{framework.pdf}
+\end{figure}
+
+\end{column}
+\end{columns}
 \end{frame}
 
 
@@ -1292,7 +1315,7 @@ Mean service time between cores for each video quality, changing the core number
 
 
 
-\begin{frame}{\hskip 0.3cm Results - Jitter}
+\begin{frame}{\hskip 0.3cm Results - Jitter visualization}
 
 \begin{columns}
 \begin{column}{6.5cm}
@@ -1311,16 +1334,19 @@ Mean service time between cores for each video quality, changing the core number
 \end{column}
 
 \begin{column}{5cm}
+\vskip -1cm
 
 \begin{itemize}
+\item Arrival times of left and right images.
 
-\item Time between output of a frame for each of the 6 threads.
+\item X Axis is the absolute time in seconds, Y Axis the 6 threads: left and right images.
 
-\vskip 0.5cm
-\item Soma self realigning.
+\item The vertical lines connect the arrival time of corresponding images.
 
-\vskip 0.5cm
-\item OpenMP increasing delay between sx and dx.
+\item OpenMP presents an incresing delay between left and right images.
+
+\item Soma self realigns.
+
 
 \end{itemize}
 
