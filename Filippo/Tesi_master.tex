@@ -842,52 +842,19 @@ Part of the XML produced for the example \ref{code} is shown  in \ref{schedule}
 
 \lstset{language=XML}
 \begin{lstlisting}[caption=Schedule XML, label=schedule]
-<Schedule>
-  <Cores>4</Cores>
-  <Pragma>
-    <id>12</id>
-    <Caller_id>0</Caller_id>
-    <Type>main</Type>
-    <Threads>
-      <Thread>0</Thread>
-    </Threads>
-    <Start_time>0</Start_time>
-    <Deadline>22.0</Deadline>
-    <Barrier>
-      <id>15</id>
-    </Barrier>
-  </Pragma>
-  <Pragma>
-    <id>15</id>
-    <Caller_id>12</Caller_id>
-    <Type>OMPParallelDirective</Type>
-    <Threads>
-      <Thread>0</Thread>
-    </Threads>
-    <Start_time>0</Start_time>
-    <Deadline>22.0</Deadline>
-    <Barrier>
-      <id>15</id>
-      <id>17</id>
-    </Barrier>
-  </Pragma>
 ...
 <Pragma>
-    <id>5</id>
-    <Caller_id>3</Caller_id>
+    <id>152</id>
     <Type>OMPParallelForDirective</Type>
     <Threads>
-      <Thread>2</Thread>
       <Thread>3</Thread>
+      <Thread>2</Thread>
     </Threads>
-    <Start_time>27.0</Start_time>
-    <Deadline>30.0</Deadline>
     <Barrier>
-      <id>5</id>
+      <id>152</id>
     </Barrier>
   </Pragma>
 ...
-
 \end{lstlisting}
 
 \section{Graph creation}

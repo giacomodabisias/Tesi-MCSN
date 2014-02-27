@@ -177,7 +177,7 @@ There is no actual automatic tool which has the advantages of HPC with timing co
 
 
 
-\begin{frame}{\hskip 0.3cm Objectives}
+\begin{frame}{\hskip 0.3cm Objectives }
 
 The aim of this work is to create:
 
@@ -217,7 +217,7 @@ OpenMP
 
 \item Minimal code overhead.
 
-\item Well spread standard.
+\item  Well spread standard.
 
 \item Opensource and supported by several vendors like Intel and IBM.
 
@@ -247,7 +247,24 @@ In July 2013 Intel released a patched version of Clang which fully supports the 
 
 
 
-\begin{frame}{\hskip 0.3cm Ompss}
+\begin{frame}{\hskip 0.3cm OMPSS}
+
+Devoleped at the Barcelona Supercomputing Center (BSC) in 2011.
+
+\begin{itemize}
+
+\item Alternative to Clang.
+
+\item Extends  OpenMP with new directives to support asynchronous parallelism.
+
+\item New directives extending accelerator based APIs like CUDA or OpenCL.
+
+\item It is based on the Mercurium compiler which provides source to source transformation tools.
+
+
+\end{itemize}
+
+OMPSS has not been chosen because its development is limited to the BSC.
 
 \end{frame}
 
@@ -265,13 +282,13 @@ In July 2013 Intel released a patched version of Clang which fully supports the 
 
 \begin{frame}{\hskip 0.3cm General Design}
 
-The framework takes as input a C++ code annotated with OpenMP.
+The framework (Soma) takes as input a C++ code annotated with OpenMP.
 
 \begin{itemize}
 
-\item The pragmas are extracted with all relevant informations using Clang and saved as XML .
+\item The pragmas are extracted with all relevant informations using Clang and saved as XML.
 
-\item The input code is rewritten to perform profiling .
+\item The input code is rewritten to perform profiling.
 
 \item The scheduler tool uses these informations to create a possible schedule.
 
@@ -323,9 +340,9 @@ The framework creates three types of graphs to visualize and work on the extract
 
 \item Flow Graph: represents the parallel execution flow and the synchronization barriers.
 
-\item Agumented Flow Graph: enhances the Flow Graph with the profiling information and the function calls.
+\item Augumented Flow Graph: enhances the Flow Graph with the profiling information and the function calls.
 
-\item Schedule Graph: enhances the Agumented Flow Graph with scheduling informations.
+\item Schedule Graph: enhances the Augumented Flow Graph with scheduling informations.
 
 
 \end{itemize}			
@@ -361,7 +378,7 @@ $\#$pragma omp directive-name [clause[ [,] clause]...] new-line
 
 \end{block}
 
-Choosen subset for the framwork:
+Choosen subset for the framework:
 
 \begin{itemize}
 
@@ -384,13 +401,15 @@ Choosen subset for the framwork:
 
 
 
-\begin{frame}{\hskip 0.3cm OpenMP}
-
+\begin{frame}{\hskip 0.3cm OpenMP - Hierarchy}
+\vskip -1cm
 \begin{figure}
 \centering
-\includegraphics[scale = 0.45]{ompstructure}
+\includegraphics[scale = 0.7]{ompstructure}
 
 \end{figure}
+\vskip -1cm
+Nested structure of OpenMP pragma's
 
 \end{frame}
 
@@ -424,15 +443,16 @@ int main(int argc, char* argv[]) {
                 //do stuff (bar)
                 work(bar);
             }
-        }
-    }
+        } //implicit barrier 
+    } //implicit barrier 
 }
 \end{lstlisting}
 
 \end{column}
 
 \begin{column}{6.5cm}
-\vskip -1cm
+First generated Flow Graph
+\vskip -0.5cm
 \begin{figure}
 
 \includegraphics[scale=0.3]{main.pdf}
@@ -445,6 +465,7 @@ int main(int argc, char* argv[]) {
 \end{column}
 
 \end{columns}
+
 
 \end{frame}
 
@@ -603,6 +624,33 @@ TranslationUnitDecl
 
 
 
+\begin{frame}{\hskip 0.3cm }
+\begin{columns}
+\begin{column}{6.5cm}
+\vskip -1.7cm
+
+\begin{figure}
+\hskip -1cm
+\includegraphics[scale=0.29]{zoom1.png}
+\end{figure}
+
+\end{column}
+\begin{column}{3.5cm}
+\vskip -1.5cm
+\begin{figure}
+\includegraphics[scale=0.15]{framework.pdf}
+\end{figure}
+
+\end{column}
+\end{columns}
+\end{frame}
+
+
+
+
+
+
+
 
 
 
@@ -618,7 +666,7 @@ TranslationUnitDecl
 
 \item Output is saved in an XML file.
 
-\item Allows to create the Agumented Flow Graph containing all the call information.
+\item Allows to create the Augumented Flow Graph containing all the call information.
 
 \end{itemize}
 
@@ -663,7 +711,7 @@ if( ProfileTracker profile_tracker = ProfileTrackParams(12, 25))
 
 \item The profiled code is executed $N$ times and statistics are obtained. 
 
-\item IProfile statistics can be associated to different input arguments.
+\item Profile statistics can be associated to different input arguments.
 
 \item An edge is added for each function call that contains pragmas.
 
@@ -690,12 +738,21 @@ Possible improvement: probabilistic analysis of the function calls and execution
 
 
 
+\begin{frame}{\hskip 0.3cm }
+\vskip +3.45cm
+\begin{tikzpicture}[remember picture,overlay]
+            \node[at=(current page.center)] {
+                \includegraphics[scale = 0.25]{tgraph2.pdf}
+            };
+        \end{tikzpicture}
+
+\end{frame}
 
 
 
 \begin{frame}{\hskip 0.3cm Scheduler }
 
-The scheduler takes as input the Agumented Flow Graph and the program's deadline.
+The scheduler takes as input the Augumented Flow Graph and the program's deadline.
 
 \begin{itemize}
 
@@ -789,6 +846,15 @@ The produced schedule does not account for precedence relations. A modified vers
 
 
 
+\begin{frame}{\hskip 0.3cm }
+%\vskip +3.45cm
+\begin{tikzpicture}[remember picture,overlay]
+            \node[at=(current page.center)] {
+                \includegraphics[scale = 0.25]{tgraph3.pdf}
+            };
+        \end{tikzpicture}
+
+\end{frame}
 
 
 
@@ -802,19 +868,19 @@ Each pragma block is transformed in a custom task.
 
 \begin{itemize}
 
-\item Each pragma code block is embedded in a function call.
+\item Each pragma code block is embedded in a new function call.
 
-\item The function is member of a class defined inside the scope of the pragma block.
+\item Nested function declaration is not allowed in C++.
+
+\item Solved declaring the function in a local class defined inside the pragma block.
 
 \item All the variables used in the pragma block, but declared outside are passed to the class's constructor.
 
 \item The nested pragma structure is not changed.
 
-\item Each for is rewritten in order to allow it to be splitted.
-
 \end{itemize}
 
-
+Each for is rewritten in order to allow it to be splitted.
 
 
 
@@ -947,7 +1013,7 @@ Each thread behaves as follows
 
 
 
-\begin{frame}{\hskip 0.3cm General structure}
+\begin{frame}{\hskip 0.3cm Test - General Structure}
 
 Face recognition algorithm in OpenCV.
 
@@ -984,14 +1050,14 @@ Three different qualities of the same videos have been used to test the algorith
 
 
 
-\begin{frame}{\hskip 0.3cm Agumented Flow Graph for Evaluation}
+\begin{frame}{\hskip 0.3cm Augumented Flow Graph for Evaluation}
 
 \vskip -1cm
 
 \begin{figure}
 \hskip -1cm
 
-\includegraphics[scale=0.23]{test.pdf}
+\includegraphics[scale=0.25]{test.png}
 \end{figure}
 
 \end{frame}
@@ -1005,6 +1071,28 @@ Three different qualities of the same videos have been used to test the algorith
 
 
 
+
+\begin{frame}{\hskip 0.3cm Test Objectives}
+
+
+System framework evaluation
+
+\begin{itemize}
+
+\item Evaluate the instrumented program's correctness.
+
+\item Compare the OpenMP and Soma completion time for performance evaluation.
+
+\item Measure framework's overhead.
+
+\item Check system's predictability.
+
+\end{itemize}
+
+
+
+
+\end{frame}
 
 
 
@@ -1020,7 +1108,7 @@ Three different qualities of the same videos have been used to test the algorith
 
 \item Statistics are calculated over 5 executions.
 
-\item Tested with three different scheduler configurations: 4, 6 and 12 cores
+\item Tested with three different scheduler configurations: 4, 6 and 12 cores.
 
 \item Video properties:
 
@@ -1030,7 +1118,7 @@ Three different qualities of the same videos have been used to test the algorith
 
 \item 1 minute length.
 
-\item 34 FPS.
+\item 24 FPS.
 
 \item Resolutions : 640x360 (230400px), 1280x720 (921600px), 1920x1080 (2073600px)
 
@@ -1040,7 +1128,7 @@ Three different qualities of the same videos have been used to test the algorith
 
 \end{frame}
 
-\begin{frame}{\hskip 0.3cm Results}
+\begin{frame}{\hskip 0.3cm Results - Execution Times}
 
 \begin{center}
 \resizebox{\linewidth}{!}{
@@ -1208,16 +1296,16 @@ Mean service time between cores for each video quality, changing the core number
 
 \begin{columns}
 \begin{column}{6.5cm}
-
+\vskip -1cm
 \begin{figure}
 
-\includegraphics[scale=0.13]{soma_480_range_010.png}
+\includegraphics[scale=0.14]{omp_480_range_010.png}
 \end{figure}
 
-\vskip -0.5cm
+\vskip -1cm
 \begin{figure}
 
-\includegraphics[scale=0.13]{omp_480_range_010.png}
+\includegraphics[scale=0.14]{soma_480_range_010.png}
 \end{figure}
 
 \end{column}
@@ -1226,11 +1314,13 @@ Mean service time between cores for each video quality, changing the core number
 
 \begin{itemize}
 
-\item Time between output of a frame for each thread.
+\item Time between output of a frame for each of the 6 threads.
 
+\vskip 0.5cm
 \item Soma self realigning.
 
-\item Omp increasing delay between sx and dx.
+\vskip 0.5cm
+\item OpenMP increasing delay between sx and dx.
 
 \end{itemize}
 
@@ -1281,7 +1371,7 @@ The framework achieved the two main requested properties to work with real-time 
 
 
 \end{section}
-\begin{section}{Future Directions}
+\begin{section}{Future Steps}
 
 
 

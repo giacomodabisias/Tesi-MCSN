@@ -2699,9 +2699,9 @@ int chartoint(char *cc){
 \end{lstlisting}
 
 \chapter{Python}
-
-\begin{lstlisting}[language=CCC, caption=graphCreator.py]
-import sys
+\section{Main}
+\begin{lstlisting}[language=CCC, caption=appsched.py]
+iimport sys
 import pargraph as par
 import copy
 import schedule as sched
@@ -2711,22 +2711,31 @@ import multiprocessing
 import itertools
 import random
 import threading
-
-""" Usage: call with <filename> <pragma_xml_file> <executable_name> <profiling_interations> True/False (for output) """
+import argparse
 
 if __name__ == "__main__":
+	import argparse
 
-	pragma_xml = sys.argv[1]
-	executable = sys.argv[2]
-	count = int(sys.argv[3])
-	output = sys.argv[4]
-	execution_time = float(sys.argv[5])
-	deadline = float(sys.argv[6])
-	multi = sys.argv[7]
+	parser = argparse.ArgumentParser(description='Code Flow Toolchain')
+	parser.add_argument('--profile',help='profile description file',required=True)
+	parser.add_argument('--pragmaxml',help='profile description file',required=True)
+	parser.add_argument('--cores',help='number of cores. If 0 or missing use the host cores',type=int)
+	parser.add_argument('--maxflows',help='number of flows. Estimated from profiling or specified',type=int)
+	parser.add_argument('--deadline',help='Deadline in seconds',type=float)
+	parser.add_argument('--executiontime',help='Execution time in seconds',type=float)
+	parser.add_argument('--parallelize',help='Execute the Algorithm in parallel mode')
+	parser.add_argument('--output',help='output schedule')
 
-	#runs count time the executable and aggregates the informations in executable_profile.xml. The single profile outputs are saved as profile+iter.xml
-	profile_xml = pro.profileCreator(count, executable)
+	args = parser.parse_args()
 
+	pragma_xml = args.pargmaxml
+	profile_xml = args.profile
+	cores = args.cores
+	output = args.output
+	deadline = float(args.deadline)
+	execution_time = float(args.executiontime)
+	parallelized = args.parallelize
+	
 	#return the nested dot graphs in code style (one for each function)
 	visual_nested_graphs = par.getNesGraph(pragma_xml, profile_xml)
 
@@ -2734,6 +2743,8 @@ if __name__ == "__main__":
 	(visual_flow_graphs, flow_graphs) = par.getParalGraph(pragma_xml, profile_xml) 
 
 	i = 0
+
+	os.mkdir("graphs")
 
 	for g in visual_nested_graphs:
 		g.write_pdf('graphs/%s_code.pdf'%flow_graphs[i].type)
@@ -2760,21 +2771,21 @@ if __name__ == "__main__":
 	exp_flows = copy.deepcopy(flow_graphs)
 	par.explode_graph(exp_flows)
 	main_flow = sched.get_main(exp_flows)
-
+	
 	#creating a generator for the expanded graph
 	gen = sched.generate_task(main_flow)
-
+	
 	#creating a new generator for the expanded graph
 	sched.make_white(main_flow)
 
 	#getting the number of physical cores of the machine profiled
-	max_flows = sched.get_core_num(profile_xml)
-	max_flows = 4
-	#getting cores of the actual machine, but the problem is multithreading
-	cores = multiprocessing.cpu_count()
-	if cores == 1:
-		cores = 2
-
+	if args.maxflows == 0:
+		max_flows = sched.get_core_num(profile_xml)
+	else:
+		max_flows = args.maxflows
+	if cores == 0:
+		cores = multiprocessing.cpu_count()
+	
 	#initializing all the lists for the parallel scheduling algorithm
 	tasks_list = []
 	task_list = []
@@ -2790,12 +2801,12 @@ if __name__ == "__main__":
 		task_list.append(task)
 		num_tasks += 1
 
-	if output == 'True':
+	if output != "":
 		sched.make_white(main_flow)
 		par.scanGraph(main_flow)
-
+	
 	#starting the parallel or sequential search of the best solution with a timing constrain
-	if multi == 'parallel':
+	if parallelized:
 		for core in range(cores):
 			tmp = []
 			optimal_flow_list.append(tmp)
@@ -2835,7 +2846,7 @@ if __name__ == "__main__":
 			print "searching best schedule"
 			sched.get_optimal_flow_single(flow_list, task_list, 0, optimal_flow, num_tasks, max_flows, execution_time )
 
-
+	
 
 	#printing the best result	
 	print "solution:"
@@ -2843,10 +2854,13 @@ if __name__ == "__main__":
 		flow.dump("\t")
 		print "\ttime:",flow.time
 
+
+
 	#substitutes "for tasks" with splitted versions if present in the optimal flows
 	par.add_new_tasks(optimal_flow, main_flow)
 	sched.make_white(main_flow)
 	gen_ = sched.generate_task(main_flow)
+
 
 	t_list = []
 	for t in gen_:
@@ -2860,13 +2874,13 @@ if __name__ == "__main__":
 			print "\t ",c.type," @ ", c.start_line
 		print
 		"""
-
+	
 	#adds id's to all the tasks to retrive the flow to which they belong
 	par.add_flow_id(optimal_flow, t_list)
 
 	#sets arrival times and deadlines using a modified version of the chetto algorithm
 	sched.chetto(main_flow, deadline, optimal_flow)
-
+	
 	#checks if the schedule is feasible and in case creates the schedule file
 	if sched.check_schedule(main_flow):
 		sched.create_schedule(main_flow, len(optimal_flow))
@@ -2876,8 +2890,10 @@ if __name__ == "__main__":
 		print "tasks not schedulable, try with more search time"
 
 	#prints extended info of the entire pragma graph
+	
 \end{lstlisting}
 
+\section{Graph Creator}
 \begin{lstlisting}[language=CCC, caption=pargraph.py]
 import pydot as p
 import profiler as pro
@@ -3590,6 +3606,7 @@ def add_flow_id(optimal_flow, task_list):
 
 \end{lstlisting}
 
+\section{Profiler}
 \begin{lstlisting}[language=CCC, caption=profiler.py]
 from __future__ import with_statement
 import os
@@ -3778,13 +3795,48 @@ def getProfilesMap(profile_xml):
 	return functions
 \end{lstlisting}
 
-\begin{lstlisting}[language=CCC, caption=graphCreator.py]
+
+\begin{lstlisting}[language=CCC, caption=appprofile.py]
+import sys
+import pargraph as par
+import copy
+import schedule as sched
+import profiler as pro
+import time
+import multiprocessing
+import itertools
+import random
+import threading
+import argparse
+
+if __name__ == "__main__":
+	import argparse
+
+	parser = argparse.ArgumentParser(description='Profiler')
+	parser.add_argument('--profile',help='Output profile description file')
+	parser.add_argument('--executable',help='Executable to be used',required=True)
+	parser.add_argument('--parameters',help='Parameters File defaults to parameters.txt',required=False,default="parameters.txt")
+	parser.add_argument('--count',help='Repetitions',type=int,default=10)
+
+	args = parser.parse_args()
+
+	if args.profile == "":
+		args.profile = app.executable + "_profile.xml"
+	
+	profile_xmldata = pro.profileCreator(args.count, args.executable,args.parameters,args.profile)
+
+\end{lstlisting}
+
+
+\section{Scheduler}
+\begin{lstlisting}[language=CCC, caption=schedule.py]
 import pargraph as par
 import xml.etree.cElementTree as ET
 import math
 import copy
 import time
 import multiprocessing
+
 
 class Queue():
 	def __init__(self):
@@ -3793,7 +3845,7 @@ class Queue():
 
 #returns the optimal flows 
 #if time is to big for the number of possible solutions it does not work.
-
+#parallel version
 def get_optimal_flow(flow_list, task_list, level, optimal_flow, NUM_TASKS, MAX_FLOWS, execution_time, q):
 	if time.clock() < execution_time :
 		curopt = get_cost(optimal_flow)
@@ -3810,7 +3862,7 @@ def get_optimal_flow(flow_list, task_list, level, optimal_flow, NUM_TASKS, MAX_F
 			flow_list.append(new_flow)
 			get_optimal_flow(flow_list, task_list, level + 1, optimal_flow, NUM_TASKS, MAX_FLOWS, execution_time, q)
 			flow_list.remove(new_flow)
-
+			
 			if 'For' in task_i.type :
 				#checks the possible splittings of the for node
 				for i in range(2, MAX_FLOWS + 1):
@@ -3826,7 +3878,7 @@ def get_optimal_flow(flow_list, task_list, level, optimal_flow, NUM_TASKS, MAX_F
 						task_list.remove(tmp_task)		
 		else:
 			if len(task_list) == level and len(flow_list) == MAX_FLOWS and cur <= curopt:
-				if cur < curopt or (get_num_splitted(flow_list) > get_num_splitted(optimal_flow) and get_num_splitted(flow_list) < (MAX_FLOWS * 2)):
+				if cur < curopt or (get_num_splitted(flow_list) > get_num_splitted(optimal_flow)):
 					#print "acutal cost: ", get_cost(flow_list), "optimal cost: ", get_cost(optimal_flow)
 					del optimal_flow[:]
 					id = 0
@@ -3839,9 +3891,9 @@ def get_optimal_flow(flow_list, task_list, level, optimal_flow, NUM_TASKS, MAX_F
 					while( not q.q.empty() ):
 						q.q.get()
 					q.q.put(optimal_flow)
-
+	
+#sequential version
 def get_optimal_flow_single(flow_list, task_list, level, optimal_flow, NUM_TASKS, MAX_FLOWS, execution_time):
-	#print "time: ", time.clock() - execution_time
 	if time.clock() < execution_time :
 		curopt = get_cost(optimal_flow)
 		cur = get_cost(flow_list)
@@ -3857,7 +3909,7 @@ def get_optimal_flow_single(flow_list, task_list, level, optimal_flow, NUM_TASKS
 			flow_list.append(new_flow)
 			get_optimal_flow_single(flow_list, task_list, level + 1, optimal_flow, NUM_TASKS, MAX_FLOWS, execution_time)
 			flow_list.remove(new_flow)
-
+			
 			if 'For' in task_i.type :
 				#checks the possible splittings of the for node
 				for i in range(2, MAX_FLOWS + 1):
@@ -3873,7 +3925,7 @@ def get_optimal_flow_single(flow_list, task_list, level, optimal_flow, NUM_TASKS
 						task_list.remove(tmp_task)		
 		else:
 			if len(task_list) == level and len(flow_list) == MAX_FLOWS and cur <= curopt:
-				if cur < curopt and get_num_splitted(flow_list) <  MAX_FLOWS/2 or (get_num_splitted(flow_list) > get_num_splitted(optimal_flow) and get_num_splitted(flow_list) <  MAX_FLOWS/2) :
+				if cur < curopt or (get_num_splitted(flow_list) > get_num_splitted(optimal_flow)) :
 					#print "acutal cost: ", get_cost(flow_list), "optimal cost: ", get_cost(optimal_flow)
 					del optimal_flow[:]
 					id = 0
@@ -3892,6 +3944,7 @@ def get_num_splitted(flow_list):
 				num += 1
 	return num
 
+				
 #generator for the tasks of the graph
 def generate_task(node):
 	if node.color == 'white':
@@ -4120,6 +4173,7 @@ def check_schedule(main_flow):
 		if node.d < 0:
 			return False
 	return True
+
 \end{lstlisting}
 
 \end{document}
